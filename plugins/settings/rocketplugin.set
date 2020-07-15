@@ -1,0 +1,19 @@
+Rocket Plugin
+8 |
+9 | If you can not figure out which button to press to open the Rocket Plugin Gui,
+9 | you can rebind it right here to almost any button you like:
+12 | ##keybind |rp_gui_keybind
+7 |
+0 | Change Keybind | rp_change_keybind
+9 | If all else fails, head over to the "Bindings" tab to the left of this one and change it there.
+8 |
+8 |
+9 | Default ip address:
+12 | ##ip |mp_ip
+9 | Default port:
+12 | ##port |mp_port
+9 | Default password:
+12 | ##pswd |mp_password
+8 |
+8 |
+0 | Open Rocket Plugin GUI | plugin load rocketplugin; writeplugins; togglemenu rocketplugin

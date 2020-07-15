@@ -1,0 +1,9 @@
+stun.ekiga.net:3478
+stun.fwdnet.net:3478
+stun.ideasip.com:3478
+stun.schlund.de:3478
+stun.voiparound.com:3478
+stun.voipbuster.com:3478
+stun.voipstunt.com:3478
+stun.xten.com:3478
+stun.l.google.com:19302
