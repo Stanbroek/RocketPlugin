@@ -14,7 +14,7 @@
 /// <remarks>Gets called on 'Function GameEvent_Soccar_TA.Active.Tick'.</remarks>
 /// <param name="server"><see cref="ServerWrapper"/> instance of the current server</param>
 /// <param name="params">Delay since last update</param>
-void BoostMod::onTick(ServerWrapper server, void* params)
+void BoostMod::onTick(ServerWrapper server, void*)
 {
 	if (server.IsNull()) {
 		return;
