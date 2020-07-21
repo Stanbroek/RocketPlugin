@@ -84,6 +84,9 @@
     <ClInclude Include="bakkesmod_additions\parser.h">
       <Filter>Resource Files\BakkesMod additions</Filter>
     </ClInclude>
+    <ClInclude Include="gamemodes\BoostMod.h">
+      <Filter>Resource Files\Gamemodes</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="RocketPlugin.cpp">
@@ -145,6 +148,9 @@
     </ClCompile>
     <ClCompile Include="ExternalFunctions.cpp">
       <Filter>Resource Files</Filter>
+    </ClCompile>
+    <ClCompile Include="gamemodes\BoostMod.cpp">
+      <Filter>Resource Files\Gamemodes</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
