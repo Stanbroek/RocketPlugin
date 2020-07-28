@@ -104,6 +104,10 @@ void BoostMod::RenderOptions()
 		}
 		ImGui::Unindent();
 	}
+
+	ImGui::Separator();
+
+	ImGui::TextWrapped("Gamemode made by: AL12");
 }
 
 
