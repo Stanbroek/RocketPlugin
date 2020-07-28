@@ -4,7 +4,7 @@
 // and ubelhj (author of SpeedBoost plugin, source of some of the code here).
 // 
 // Author:       Al12
-// Version:      0.1.0 17/07/20
+// Version:      0.1.1 28/07/20
 // BMSDKversion: 95
 
 #include "BoostMod.h"
