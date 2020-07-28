@@ -63,7 +63,7 @@ void BoostMod::onTick(ServerWrapper server, void*)
 void BoostMod::RenderSingleOption(BoostModValues& boostSettings)
 {
 	ImGui::Spacing();
-	if (ImGui::SwitchCheckbox((" Enable " + boostSettings.displaySuffix).c_str(), 
+	if (ImGui::SwitchCheckbox(" Enable ", 
 		boostSettings.enabled)) 
 	{
 		boostSettings.enabled = !boostSettings.enabled;
@@ -71,13 +71,13 @@ void BoostMod::RenderSingleOption(BoostModValues& boostSettings)
 	if (boostSettings.enabled) {
 		//TODO: implement boost amount type modifier.
 		//ImGui::SliderArray(("Boost Amount Type" + boostSettings.displaySuffix).c_str(), &boostSettings.boostAmountType, boostAmounts);
-		ImGui::SliderInt(("Boost Limit " + boostSettings.displaySuffix).c_str(),
+		ImGui::SliderInt("Boost Limit ",
 			&boostSettings.maxBoost, 0, 100, "%d%%");
 	}
 	else {
 		ImGui::BeginDisabled();
 		//ImGui::SliderArray(("Boost Amount Type" + boostSettings.displaySuffix).c_str(), &boostSettings.boostAmountType, boostAmounts);
-		ImGui::SliderInt(("Boost Limit " + boostSettings.displaySuffix).c_str(), &boostSettings.maxBoost, 0, 100, "%d%%");
+		ImGui::SliderInt("Boost Limit ", &boostSettings.maxBoost, 0, 100, "%d%%");
 		ImGui::EndDisabled();
 	}
 	ImGui::Spacing();
@@ -86,10 +86,12 @@ void BoostMod::RenderSingleOption(BoostModValues& boostSettings)
 /// <summary>Renders the available options for the gamemode.</summary>
 void BoostMod::RenderOptions()
 {
-	// general modifier (everyone)
+	// general modifier (everyone), no ID
 	ImGui::Text("General:");
 	ImGui::Indent(20);
+
 	RenderSingleOption(generalBoostSettings);
+
 	ImGui::Unindent();
 
 	
@@ -97,11 +99,17 @@ void BoostMod::RenderOptions()
 	if (ImGui::CollapsingHeader("Team modifiers:")) {
 		ImGui::Indent(20);
 		for (int teamIdx = 0; teamIdx < teamsBoostSettings.size(); teamIdx++) {
-			if (ImGui::CollapsingHeader(teamsBoostSettings[teamIdx].displaySuffix.c_str())) {
+			ImGui::PushID(teamIdx);
+
+			if (ImGui::CollapsingHeader((" Team " + std::to_string(teamIdx)).c_str())) {
 				ImGui::Indent(20);
+
 				RenderSingleOption(teamsBoostSettings[teamIdx]);
+
 				ImGui::Unindent();
 			}
+
+			ImGui::PopID();
 		}
 		ImGui::Unindent();
 	}

@@ -9,10 +9,6 @@ private:
 	void onTick(ServerWrapper server, void* params);
 
 	struct BoostModValues {
-		// A suffix to append to ui elements (ImGui uses the label to cache, so
-		// you can't have elements with the same labels.
-		std::string displaySuffix = "";
-
 		// Whether the modifier should be considered
 		bool enabled = false;
 
@@ -32,11 +28,11 @@ private:
 
 	const std::vector<std::string> boostAmounts = { "Default", "No Boost", "Unlimited", "Recharge (slow)", "Recharge (fast)" };
 
-	BoostModValues generalBoostSettings{"general", false, 100, 0};
+	BoostModValues generalBoostSettings{ false, 100, 0 };
 
 	std::vector<BoostModValues> teamsBoostSettings{ 
-		BoostModValues { "Team Blue", false, 100, 0 }, 
-		BoostModValues { "Team Orange", false, 100, 0 } };
+		BoostModValues { false, 100, 0 }, 
+		BoostModValues { false, 100, 0 } };
 
 public:
 	BoostMod(RocketPlugin* rp) : RocketGameMode(rp) { _typeid = std::make_shared<std::type_index>(typeid(*this)); }
