@@ -35,7 +35,8 @@ void BoostMod::onTick(ServerWrapper server, void*)
 			currentTeamMax = (float)teamsBoostSettings[teamIdx].maxBoost / 100.0f;
 		}
 		
-		if (generalBoostSettings.enabled || teamsBoostSettings[teamIdx].enabled) {
+		if (generalBoostSettings.enabled || (teamIdx < teamsBoostSettings.size() 
+				&& teamsBoostSettings[teamIdx].enabled)) {
 			auto team = teams.Get(teamIdx);
 			if (team.IsNull()) { continue; }
 			auto players = team.GetMembers();
