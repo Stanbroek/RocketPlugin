@@ -5,12 +5,8 @@
 class BoostMod : public RocketGameMode
 {
 private:
-	float boostConversionPercentage = 100.0f;
 
 	void onTick(ServerWrapper server, void* params);
-	void OnBoostPickUp(ActorWrapper caller, void* params, std::string funcName);
-	void setMaxBoost(int newBoost);
-	std::vector<TeamWrapper> getTeams();
 
 	struct BoostModValues {
 		// A suffix to append to ui elements (ImGui uses the label to cache, so
