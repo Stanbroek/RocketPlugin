@@ -1770,7 +1770,7 @@ void RocketPlugin::onLoad()
     gamemodes.push_back(std::shared_ptr<RocketGameMode>(new KeepAway(this)));
     gamemodes.push_back(std::shared_ptr<RocketGameMode>(new Tag(this)));
     gamemodes.push_back(std::shared_ptr<RocketGameMode>(new Juggernaut(this)));
-    gamemodes.push_back(std::shared_ptr<RocketGameMode>(new BoostMod(this)));
+    gamemodes.push_back(std::make_shared<BoostMod>(this));
 }
 
 
