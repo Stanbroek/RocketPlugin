@@ -1,4 +1,5 @@
 # Rocket Plugin - Open Source
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/d5229dfc4af84689bc55cfbd4e6f91ed)](https://app.codacy.com/manual/Stanbroek/RocketPlugin?utm_source=github.com&utm_medium=referral&utm_content=Stanbroek/RocketPlugin&utm_campaign=Badge_Grade_Settings)
 [![Made by SSQ](https://img.shields.io/badge/Made%20by-SSQ%E2%9B%84-lightgrey)]()
 [![Rocket Plugins](https://img.shields.io/badge/downloads-100k-blue)](https://bakkesplugins.com/plugins/view/26)
 [![Discord Server](https://img.shields.io/discord/667692939236868096)](https://discord.gg/hWPX9tq)
