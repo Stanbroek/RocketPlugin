@@ -14,6 +14,7 @@
 #include "gamemodes/KeepAway.h"
 #include "gamemodes/Tag.h"
 #include "gamemodes/Juggernaut.h"
+#include "gamemodes/BoostMod.h"
 
 BAKKESMOD_PLUGIN(RocketPlugin, "Rocket Plugin", "0.6.3", 0x0)
 
@@ -1769,6 +1770,7 @@ void RocketPlugin::onLoad()
     gamemodes.push_back(std::shared_ptr<RocketGameMode>(new KeepAway(this)));
     gamemodes.push_back(std::shared_ptr<RocketGameMode>(new Tag(this)));
     gamemodes.push_back(std::shared_ptr<RocketGameMode>(new Juggernaut(this)));
+    gamemodes.push_back(std::make_shared<BoostMod>(this));
 }
 
 

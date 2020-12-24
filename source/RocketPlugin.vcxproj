@@ -107,6 +107,7 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="gamemodes\BoostMod.h" />
     <ClInclude Include="Networking.h" />
     <ClInclude Include="RocketPlugin.h" />
     <ClInclude Include="bakkesmod_additions\cvarmanagerwrapperdebug.h" />
@@ -129,6 +130,7 @@
     <ClInclude Include="imgui\imstb_truetype.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="gamemodes\BoostMod.cpp" />
     <ClCompile Include="Networking.cpp" />
     <ClCompile Include="P2PHost.cpp" />
     <ClCompile Include="UPnPClient.cpp" />
