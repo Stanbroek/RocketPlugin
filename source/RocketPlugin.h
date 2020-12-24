@@ -242,7 +242,7 @@ class RocketPlugin : public BakkesMod::Plugin::BakkesModPlugin, public BakkesMod
             "Badlands", "Badlands (Night)", "Salty Shores (Night)", "Tokyo Underpass", "Arctagon",
             "Rivals Arena", "Farmstead (Night)", "Farmstead (The Upside Down)", "Pillars", "Cosmic (Old)", "Cosmic (New)",
             "Double Goal (Old)", "Double Goal (New)", "Octagon (Old)", "Octagon (New)", "Underpass (Old)",
-            "Underpass (New)", "Utopia Retro", "Throwback Stadium", "Core 707", "Dunk House"
+            "Underpass (New)", "Utopia Retro", "Throwback Stadium", "Core 707", "Dunk House", "Neon Fields"
         };
         const std::vector<std::string> _maps = {
             "Stadium_P", "EuroStadium_P", "CS_P", "TrainStation_P", "Park_P",
@@ -255,7 +255,8 @@ class RocketPlugin : public BakkesMod::Plugin::BakkesModPlugin, public BakkesMod
             "Beach_Night_P", "NeoTokyo_P", "ARC_P", "CS_HW_P", "Farm_Night_P", "Farm_UpsideDown_P",
             "Labs_CirclePillars_P", "Labs_Cosmic_P", "Labs_Cosmic_V4_P", "Labs_DoubleGoal_P",
             "Labs_DoubleGoal_V2_P","Labs_Octagon_P", "Labs_Octagon_02_P", "Labs_Underpass_v0_p",
-            "Labs_Underpass_P", "Labs_Utopia_P", "ThrowbackStadium_P", "ShatterShot_P", "HoopsStadium_P"
+            "Labs_Underpass_P", "Labs_Utopia_P", "ThrowbackStadium_P", "ShatterShot_P", "HoopsStadium_P",
+            "Music_P"
         };
         int playerCount = 6;
         bool enableBots = false;
