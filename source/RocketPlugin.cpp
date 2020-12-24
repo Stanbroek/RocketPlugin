@@ -606,6 +606,8 @@ void RocketPlugin::gameEventInit(ServerWrapper server)
         return;
     }
 
+    setMaxPlayers(playerCount);
+    setMaxTeamSize((playerCount + 1) / 2);
     hostingGame = false;
     numBots = getNumBots();
 
