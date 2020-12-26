@@ -1,0 +1,25 @@
+name: build
+
+# Triggers the workflow on pull request events
+on: [pull_request, workflow_dispatch]
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  Windows:
+    # Envirements variables for the runner that the job will run on
+    env:
+      MSBUILD_PATH: C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\MSBuild\Current\Bin
+    # The type of runner that the job will run on
+    runs-on: windows-2019
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+    - name: Checkout repository
+      uses: actions/checkout@v2
+      with:
+        submodules: true
+    # Builds the Release version
+    - name: Build Release x64
+      shell: cmd
+      run: '"%MSBUILD_PATH%\MSBuild.exe" source/RocketPlugin.vcxproj /p:Platform=x64 /p:Configuration=Release'

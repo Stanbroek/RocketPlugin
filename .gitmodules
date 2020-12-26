@@ -1,3 +1,6 @@
 [submodule "source/imgui"]
 	path = source/imgui
 	url = https://github.com/Stanbroek/imgui
+[submodule "source/fmt"]
+	path = source/fmt
+	url = https://github.com/fmtlib/fmt

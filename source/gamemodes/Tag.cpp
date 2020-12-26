@@ -1,11 +1,96 @@
-// gamemodes/Tag.cpp
-// Tag others by bumping other and try to survive untill the very end.
+// GameModes/Tag.cpp
+// Tag others by bumping other and try to survive until the very end.
 //
-// Author:       Stanbroek
-// Version:      0.6.3 15/7/20
-// BMSDKversion: 95
+// Author:        Stanbroek
+// Version:       0.1.1 24/12/20
+// BMSDK version: 95
 
 #include "Tag.h"
+
+#include <random>
+
+
+/// <summary>Renders the available options for the game mode.</summary>
+void Tag::RenderOptions()
+{
+    ImGui::Checkbox("Enable Rumble Touches", &enableRumbleTouches);
+    ImGui::SliderFloat("(0 for infinite)##TimeTillDemolition", &timeTillDemolition, 1, 60, "%.1f Seconds Till Demolition");
+    ImGui::SliderFloat("##InvulnerabilityPeriod", &invulnerabilityPeriod, 0, 1, "%.1f Seconds Invulnerable");
+    ImGui::Separator();
+
+    ImGui::TextWrapped("Highlight Tagged Player:");
+    bool tagOptionChanged = false;
+    if (ImGui::RadioButton("None", taggedOption == TaggedOption::NONE)) {
+        tagOptionChanged = true;
+        taggedOption = TaggedOption::NONE;
+    }
+    if (ImGui::RadioButton("Unlimited Boost", taggedOption == TaggedOption::UNLIMITED_BOOST)) {
+        tagOptionChanged = true;
+        taggedOption = TaggedOption::UNLIMITED_BOOST;
+    }
+    ImGui::BeginDisabled();
+    if (ImGui::RadioButton("Different Color", taggedOption == TaggedOption::DIFFERENT_COLOR)) {
+        tagOptionChanged = true;
+        taggedOption = TaggedOption::DIFFERENT_COLOR;
+    }
+    ImGui::EndDisabled();
+    if (tagOptionChanged) {
+        removeHighlightsTaggedPlayer();
+        highlightTaggedPlayer();
+    }
+    ImGui::Separator();
+
+    ImGui::TextWrapped("Game mode suggested by: SimpleAOB");
+}
+
+
+/// <summary>Gets if the game mode is active.</summary>
+/// <returns>Bool with if the game mode is active</returns>
+bool Tag::IsActive()
+{
+    return isActive;
+}
+
+
+/// <summary>Activates the game mode.</summary>
+void Tag::Activate(const bool active)
+{
+    if (active && !isActive) {
+        tagRandomPlayer();
+        HookEventWithCaller<ServerWrapper>("Function GameEvent_Soccar_TA.Active.Tick",
+                                           [this](const ServerWrapper& caller, void* params, const std::string&) {
+                                               onTick(caller, params);
+                                           });
+        HookEventWithCaller<CarWrapper>("Function TAGame.Car_TA.ApplyCarImpactForces",
+                                        [this](const CarWrapper& caller, void* params, const std::string&) {
+                                            onCarImpact(caller, params);
+                                        });
+        HookEventWithCaller<ActorWrapper>("Function TAGame.SpecialPickup_Targeted_TA.TryActivate",
+                                          [this](const ActorWrapper& caller, void* params, const std::string&) {
+                                              onRumbleItemActivated(caller, params);
+                                          });
+        HookEvent("Function TAGame.GameEvent_Soccar_TA.InitGame", [this](const std::string&) {
+            tagRandomPlayer();
+        });
+    }
+    else if (!active && isActive) {
+        removeHighlightsTaggedPlayer();
+        UnhookEvent("Function GameEvent_Soccar_TA.Active.Tick");
+        UnhookEvent("Function TAGame.Car_TA.ApplyCarImpactForces");
+        UnhookEvent("Function TAGame.SpecialPickup_Targeted_TA.TryActivate");
+        UnhookEvent("Function TAGame.GameEvent_Soccar_TA.InitGame");
+    }
+
+    isActive = active;
+}
+
+
+/// <summary>Gets the game modes name.</summary>
+/// <returns>The game modes name</returns>
+std::string Tag::GetGameModeName()
+{
+    return "Tag";
+}
 
 
 /// <summary>Gets a random player from the players in the match.</summary>
@@ -15,54 +100,84 @@ void Tag::tagRandomPlayer()
     std::vector<PriWrapper> players = rocketPlugin->getPlayers(false, true);
 
     if (players.size() <= 1) {
-        tagged = -1;
-        cvarManager->info_log("no players to tag");
+        tagged = emptyPlayer;
+        ERROR_LOG("no players to tag");
         return;
     }
 
-    // I know this is a bias randomizer but no one will notice.
-    PriWrapper randomPlayer = players[rand() % players.size()];
-    tagged = randomPlayer.GetPlayerID();
-    cvarManager->info_log("\"" + randomPlayer.GetPlayerName().ToString() + "\" is now tagged");
-    highlightTaggedPlayer(randomPlayer);
+    static std::random_device rd;
+    static std::default_random_engine generator(rd());
+    const std::uniform_int_distribution<size_t> distribution(0, players.size() - 1);
+    PriWrapper randomPlayer = players[distribution(generator)];
+    tagged = randomPlayer.GetUniqueIdWrapper().GetUID();
+    INFO_LOG(quote(randomPlayer.GetPlayerName().ToString()) + " is now tagged");
+    addHighlight(randomPlayer);
 }
 
 
 /// <summary>Highlights the tagged player.</summary>
-void Tag::highlightTaggedPlayer(PriWrapper player)
+void Tag::highlightTaggedPlayer() const
 {
-    CarWrapper car = player.GetCar();
-
-    switch (taggedOption)
-    {
-    // None
-    case 0:
-        break;
-    // Unlimited Boost
-    case 1:
-        if (!car.IsNull() && !car.GetBoostComponent().IsNull()) {
-            car.GetBoostComponent().SetUnlimitedBoost2(true);
-            car.SetbOverrideBoostOn(true);
+    std::vector<PriWrapper> players = rocketPlugin->getPlayers(true);
+    for (PriWrapper player : players) {
+        if (player.GetUniqueIdWrapper().GetUID() == tagged) {
+            addHighlight(player);
         }
-        break;
     }
-    // TBD
 }
 
 
-/// <summary>Removes the highlight.</summary>
-void Tag::removeHighlight(PriWrapper player)
+/// <summary>Highlights the given player.</summary>
+/// <param name="player">player to give the highlight to</param>
+void Tag::addHighlight(PriWrapper player) const
+{
+    CarWrapper car = player.GetCar();
+
+    switch (taggedOption) {
+        case TaggedOption::NONE:
+            break;
+        case TaggedOption::UNLIMITED_BOOST:
+            if (!car.IsNull() && !car.GetBoostComponent().IsNull()) {
+                car.GetBoostComponent().SetUnlimitedBoost2(true);
+                car.SetbOverrideBoostOn(true);
+            }
+            break;
+        case TaggedOption::DIFFERENT_COLOR:
+            break;
+    }
+}
+
+
+/// <summary>Removes the highlights from the tagged player.</summary>
+void Tag::removeHighlightsTaggedPlayer() const
+{
+    std::vector<PriWrapper> players = rocketPlugin->getPlayers(true);
+    for (PriWrapper player : players) {
+        if (player.GetUniqueIdWrapper().GetUID() == tagged) {
+            removeHighlights(player);
+        }
+    }
+}
+
+
+/// <summary>Removes the highlight from the given player.</summary>
+/// <param name="player">player to remove the highlight from</param>
+void Tag::removeHighlights(PriWrapper player) const
 {
     if (player.IsNull()) {
+        ERROR_LOG("could not get the player");
         return;
     }
 
     // Unlimited Boost
     CarWrapper car = player.GetCar();
-    if (!car.IsNull()) {
-        car.GetBoostComponent().SetUnlimitedBoost2(false);
-        car.SetbOverrideBoostOn(false);
+    if (car.IsNull()) {
+        ERROR_LOG("could not get the car");
+        return;
     }
+    car.GetBoostComponent().SetUnlimitedBoost2(false);
+    car.SetbOverrideBoostOn(false);
+    // Different Color
     // TBD
 }
 
@@ -74,125 +189,29 @@ void Tag::removeHighlight(PriWrapper player)
 void Tag::onTick(ServerWrapper server, void* params)
 {
     if (server.IsNull()) {
+        ERROR_LOG("could not get the server");
         return;
     }
 
-    if (tagged == -1) {
+    if (tagged == emptyPlayer) {
         tagRandomPlayer();
         return;
     }
 
     // dt since last tick in seconds
-    float dt = *((float*)params);
+    const float dt = *static_cast<float*>(params);
     timeTagged += dt;
-    if (timeTagged < timeTillDemolition) {
+    if (timeTillDemolition == 0.f || timeTagged < timeTillDemolition) {
         return;
     }
 
     std::vector<PriWrapper> players = rocketPlugin->getPlayers(true);
     for (PriWrapper player : players) {
-        if (player.GetPlayerID() == tagged) {
+        if (player.GetUniqueIdWrapper().GetUID() == tagged) {
             rocketPlugin->demolish(player);
             player.ServerChangeTeam(-1);
         }
     }
 
     tagRandomPlayer();
-}
-
-
-/// <summary>Tags the person that got bumped by the tagged player.</summary>
-/// <remarks>Gets called on 'Function TAGame.Car_TA.IsBumperHit'.</remarks>
-/// <param name="server"><see cref="CarWrapper"/> instance of the car</param>
-/// <param name="params">The params the function got called with</param>
-void Tag::onCarImpact(CarWrapper car, void* param)
-{
-    if (car.IsNull() || car.GetPRI().IsNull() || car.GetPRI().GetPlayerID() != tagged) {
-        return;
-    }
-    if (timeTagged < invulnerabilityPeriod) {
-        cvarManager->info_log("\"" + car.GetOwnerName() + "\" is invulnerable");
-        return;
-    }
-
-    CarWrapper otherCar = CarWrapper(*reinterpret_cast<std::uintptr_t*>(param));
-    timeTagged = 0;
-    tagged = otherCar.GetPRI().GetPlayerID();
-    removeHighlight(car.GetPRI());
-    cvarManager->info_log("\"" + car.GetOwnerName() + "\" tagged \"" + otherCar.GetOwnerName() + "\"");
-    highlightTaggedPlayer(otherCar.GetPRI());
-}
-
-
-/// <summary>Tags the person that got bumped with a rumble item by the tagged player.</summary>
-/// <remarks>Gets called on 'TAGame.SpecialPickup_Targeted_TA.TryActivate'.</remarks>
-/// <param name="server"><see cref="ActorWrapper"/> instance of the actor</param>
-/// <param name="params">The params the function got called with</param>
-void Tag::onRumbleItemActivated(ActorWrapper actor, void* /*param*/)
-{
-    if (!enableRumbleTouches || actor.IsNull()) {
-        return;
-    }
-
-    cvarManager->log("function not implemented.");
-}
-
-
-/// <summary>Renders the available options for the gamemode.</summary>
-void Tag::RenderOptions()
-{
-    ImGui::BeginDisabled();
-    ImGui::Checkbox("Enable Rumble Touches", &enableRumbleTouches);
-    ImGui::EndDisabled();
-    ImGui::SliderFloat("##TimeTillDemolition", &timeTillDemolition, 1, 60, "%.1f Seconds Till Demolition");
-    ImGui::SliderFloat("##InvulnerabilityPeriod", &invulnerabilityPeriod, 0, 1, "%.1f Seconds Invulnerable");
-    ImGui::Separator();
-
-    ImGui::TextWrapped("Highlight Tagged Player:");
-    if (ImGui::RadioButton("None", taggedOption == 0)) {
-        taggedOption = 0;
-    }
-    if (ImGui::RadioButton("Unlimited Boost", taggedOption == 1)) {
-        taggedOption = 1;
-    }
-    ImGui::Separator();
-
-    ImGui::TextWrapped("Gamemode suggested by: SimpleAOB");
-}
-
-
-/// <summary>Gets if the gamemode is active.</summary>
-/// <returns>Bool with if the gamemode is active</returns>
-bool Tag::IsActive()
-{
-	return isActive;
-}
-
-
-/// <summary>Activates the gamemode.</summary>
-void Tag::Activate(bool active)
-{
-    if (active && !isActive) {
-        tagRandomPlayer();
-        HookEventWithCaller<ServerWrapper>("Function GameEvent_Soccar_TA.Active.Tick", std::bind(&Tag::onTick, this, std::placeholders::_1, std::placeholders::_2));
-        HookEventWithCaller<CarWrapper>("Function TAGame.Car_TA.ApplyCarImpactForces", std::bind(&Tag::onCarImpact, this, std::placeholders::_1, std::placeholders::_2));
-        HookEventWithCaller<CarWrapper>("Function TAGame.SpecialPickup_Targeted_TA.TryActivate", std::bind(&Tag::onRumbleItemActivated, this, std::placeholders::_1, std::placeholders::_2));
-        HookEvent("Function TAGame.GameEvent_Soccar_TA.InitGame", std::bind(&Tag::tagRandomPlayer, this));
-    }
-    else if (!active && isActive) {
-        UnhookEvent("Function GameEvent_Soccar_TA.Active.Tick");
-        UnhookEvent("Function TAGame.Car_TA.ApplyCarImpactForces");
-        UnhookEvent("Function TAGame.SpecialPickup_Targeted_TA.TryActivate");
-        UnhookEvent("Function TAGame.GameEvent_Soccar_TA.InitGame");
-    }
-
-	isActive = active;
-}
-
-
-/// <summary>Gets the gamemodes name.</summary>
-/// <returns>The gamemodes name</returns>
-std::string Tag::GetGamemodeName()
-{
-	return "Tag";
 }

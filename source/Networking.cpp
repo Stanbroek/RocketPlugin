@@ -2,57 +2,70 @@
 // General networking calls for the RocketPlugin plugin.
 //
 // Author:       Stanbroek
-// Version:      0.6.3 15/7/20
+// Version:      0.6.4 24/12/20
 
 #include "Networking.h"
 
+#include <regex>
+#include <system_error>
+
 #pragma comment(lib,"Ws2_32.lib")
 #include <WinSock2.h>
-#include <ws2tcpip.h>
+#include <WS2tcpip.h>
 #include <iphlpapi.h>
 #pragma comment(lib, "iphlpapi.lib")
 
-#include <regex>
+#include "utils/win32_error_category.h"
+
+constexpr timeval NETWORK_TIMEOUT = { 3, 0 };
 
 
 /// <summary>Creates a thread to call functions on.</summary>
 WorkerThread::WorkerThread()
 {
     wantExit = false;
-    thread = std::unique_ptr<std::thread>(new std::thread(std::bind(&WorkerThread::Entry, this)));
+    thread = std::thread(&WorkerThread::entry, this);
 }
 
 
 /// <summary>Waits for the thread to finish and removes it.</summary>
 WorkerThread::~WorkerThread()
 {
+    // Unlocking is done before notifying, to avoid 
+    // waking up the waiting thread only to block again.
     {
         std::lock_guard<std::mutex> lock(queueMutex);
         wantExit = true;
-        queuePending.notify_one();
     }
-    thread->join();
+    queuePending.notify_one();
+    thread.join();
 }
 
 
-/// <summary>Adds job_t's to the job queue to be execute on a sepperate thread.</summary>
+/// <summary>Adds job_t's to the job queue to be execute on a separate thread.</summary>
 /// <param name="job">function to be executed</param>
-void WorkerThread::addJob(job_t job)
+void WorkerThread::addJob(const job_t& job)
 {
-    std::lock_guard<std::mutex> lock(queueMutex);
-    jobQueue.push_back(job);
+    // Unlocking is done before notifying, to avoid 
+    // waking up the waiting thread only to block again.
+    {
+        std::lock_guard<std::mutex> lock(queueMutex);
+        jobQueue.push_back(job);
+    }
     queuePending.notify_one();
 }
 
 
 /// <summary>Main loop of the thread.</summary>
-void WorkerThread::Entry()
+void WorkerThread::entry()
 {
     job_t job;
     while (true) {
         {
             std::unique_lock<std::mutex> lock(queueMutex);
-            queuePending.wait(lock, [&]() { return wantExit || !jobQueue.empty(); });
+            queuePending.wait(lock, [this]() {
+                return wantExit || !jobQueue.empty();
+            });
 
             if (wantExit) {
                 return;
@@ -67,16 +80,105 @@ void WorkerThread::Entry()
 }
 
 
-/// <summary>Checks whether the given IP is a valid ipv4.</summary>
-/// <param name="addr">IP to validate</param>
-/// <returns>Bool with is the IP is a valid ipv4 address</returns>
-bool Networking::isValidIPv4(const char* IPAddr)
+
+
+/// <summary>Get the type of address that is given.</summary>
+/// <param name="addr">address to get the type of</param>
+/// <returns>The type of the given address</returns>
+Networking::DestAddrType Networking::GetDestAddrType(const char* addr)
 {
-    const std::regex ipv4_regex("^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$");
-    std::string string = IPAddr;
+    if (IsValidIPv4(addr)) {
+        if (IsPrivateIPv4(addr)) {
+            return DestAddrType::PRIVATE_ADDR;
+        }
+        if (IsHamachiIPv4(addr)) {
+            return DestAddrType::HAMACHI_ADDR;
+        }
+        if (IsExternalIPv4(addr)) {
+            return DestAddrType::EXTERNL_ADDR;
+        }
+        return DestAddrType::INTERNL_ADDR;
+    }
+    if (IsValidDomainName(addr)) {
+        return DestAddrType::EXTERNL_ADDR;
+    }
+
+    return DestAddrType::UNKNOWN_ADDR;
+}
+
+
+/// <summary>Gets a hint for the given address type and host status.</summary>
+/// <param name="addrType">Address type to get the hint for</param>
+/// <param name="hostStatus">Host status to get the hint for</param>
+/// <returns>Hint for the given address type and host status</returns>
+std::string Networking::GetHostStatusHint(const DestAddrType addrType, const HostStatus hostStatus)
+{
+    std::string hint;
+
+    switch (addrType) {
+        case DestAddrType::UNKNOWN_ADDR:
+            hint = "Invalid address.";
+            break;
+        case DestAddrType::PRIVATE_ADDR:
+        case DestAddrType::INTERNL_ADDR:
+            hint = "Warning, this is not an external IP address.";
+            break;
+        case DestAddrType::HAMACHI_ADDR:
+            hint = "Valid Hamachi address.";
+            break;
+        case DestAddrType::EXTERNL_ADDR:
+            hint = "Valid external address.";
+            break;
+    }
+
+    switch (hostStatus) {
+        case HostStatus::HOST_UNKNOWN:
+            break;
+        case HostStatus::HOST_BUSY:
+            hint += "\nTrying to reach the host.";
+            break;
+        case HostStatus::HOST_ERROR:
+            hint += "\nAn error occurred while trying to reach the host.";
+            break;
+        case HostStatus::HOST_TIMEOUT:
+            hint += "\nTimed out while trying to reach the host.";
+            break;
+        case HostStatus::HOST_ONLINE:
+            hint += "\nSuccessfully reached the host.";
+            break;
+    }
+
+    return hint;
+}
+
+
+std::string Networking::IPv4ToString(const void* addr)
+{
+    const unsigned char* ip = static_cast<const unsigned char*>(addr);
+    return std::to_string(ip[0]) + "." + std::to_string(ip[1]) + "." + std::to_string(ip[2]) + "." +
+        std::to_string(ip[3]);
+}
+
+
+/// <summary>Checks whether the given port number is a valid port.</summary>
+/// <param name="port">port to validate</param>
+/// <returns>Bool with is the port number is a valid port</returns>
+bool Networking::IsValidPort(const int port)
+{
+    return port > 1023 && port < 0xFFFF;
+}
+
+
+/// <summary>Checks whether the given IP is a valid ipv4.</summary>
+/// <param name="ipAddr">IP to validate</param>
+/// <returns>Bool with is the IP is a valid ipv4 address</returns>
+bool Networking::IsValidIPv4(const std::string& ipAddr)
+{
+    static const std::regex ipv4Regex(
+        "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$");
     std::smatch match;
 
-    if (std::regex_match(string, match, ipv4_regex, std::regex_constants::match_flag_type::format_default)) {
+    if (std::regex_match(ipAddr, match, ipv4Regex)) {
         return true;
     }
 
@@ -84,38 +186,71 @@ bool Networking::isValidIPv4(const char* IPAddr)
 }
 
 
-/// <summary>Checks whether the given IP is not an internal ipv4.</summary>
-/// <param name="IPAddr">IP to validate</param>
-/// <returns>Bool with is the IP is not an internal ipv4 address</returns>
-bool Networking::isInternalIPv4(const char* IPAddr)
+/// <summary>Checks whether the given IP is an private ipv4 address.</summary>
+/// <param name="ipAddr">IP to validate</param>
+/// <returns>Bool with is the IP is an private ipv4 address</returns>
+bool Networking::IsPrivateIPv4(const std::string& ipAddr)
 {
-    // 192.168.0.0     -   192.168.255.255 (192.168/16 prefix)
-    if (std::strncmp(IPAddr, "192.168.", 8) == 0) {
+    if (!IsValidIPv4(ipAddr)) {
+        return false;
+    }
+
+    // 10.0.0.0     -   10.255.255.255  (10/8 prefix)       - private networks
+    if (std::strncmp(ipAddr.c_str(), "10.", 3) == 0) {
         return true;
     }
-    // 10.0.0.0        -   10.255.255.255  (10/8 prefix)
-    if (std::strncmp(IPAddr, "10.", 3) == 0) {
-        return true;
-    }
-    // 172.16.0.0      -   172.31.255.255  (172.16/12 prefix)
-    if (std::strncmp(IPAddr, "172.", 4) == 0) {
-        int i = atoi(IPAddr + 4);
-        if ((16 <= i) && (i <= 31)) {
+    // 172.16.0.0   -   172.31.255.255  (172.16/12 prefix)  - private networks
+    if (std::strncmp(ipAddr.c_str(), "172.", 4) == 0) {
+        const long i = strtol(ipAddr.data() + 4, nullptr, 10);
+        if (16 <= i && i <= 31) {
             return true;
         }
     }
+    // 192.168.0.0  -   192.168.255.255 (192.168/16 prefix) - private networks
+    if (std::strncmp(ipAddr.c_str(), "192.168.", 8) == 0) {
+        return true;
+    }
 
     return false;
+}
+
+
+/// <summary>Checks whether the given IP is an external ipv4 address.</summary>
+/// <param name="ipAddr">IP to validate</param>
+/// <returns>Bool with is the IP is an external ipv4 address</returns>
+bool Networking::IsExternalIPv4(const std::string& ipAddr)
+{
+    if (IsPrivateIPv4(ipAddr)) {
+        return false;
+    }
+
+    // 100.64.0.0   -   100.127.255.255  (100.64/10 prefix) - carrier-grade NAT deployment
+    if (std::strncmp(ipAddr.c_str(), "100.", 4) == 0) {
+        const long i = strtol(ipAddr.data() + 4, nullptr, 10);
+        if (64 <= i && i <= 127) {
+            return false;
+        }
+    }
+    // 127.0.0.0    -   127.255.255.255 (127/8 prefix)      - localhost
+    if (std::strncmp(ipAddr.c_str(), "127.", 4) == 0) {
+        return false;
+    }
+
+    return true;
 }
 
 
 /// <summary>Checks whether the given IP is in the Hamachi ipv4 address space.</summary>
-/// <param name="IPAddr">IP to validate</param>
+/// <param name="ipAddr">IP to validate</param>
 /// <returns>Bool with is the IP is in the Hamachi ipv4 address space</returns>
-bool Networking::isHamachiAddr(const char* IPAddr)
+bool Networking::IsHamachiIPv4(const std::string& ipAddr)
 {
+    if (!IsValidIPv4(ipAddr)) {
+        return false;
+    }
+
     // 25.0.0.0        -   25.255.255.255  (10/8 prefix)
-    if (std::strncmp(IPAddr, "25.", 3) == 0) {
+    if (std::strncmp(ipAddr.c_str(), "25.", 3) == 0) {
         return true;
     }
 
@@ -124,16 +259,16 @@ bool Networking::isHamachiAddr(const char* IPAddr)
 
 
 /// <summary>Checks whether the given address is a valid domain name.</summary>
-/// <remarks>https://regexr.com/3au3g</remarks>
+/// <remarks>From https://stackoverflow.com/a/30007882 </remarks>
 /// <param name="addr">address to validate</param>
 /// <returns>Bool with is the address is a valid domain name</returns>
-bool Networking::isValidDomainName(const char* addr)
+bool Networking::IsValidDomainName(const std::string& addr)
 {
-    const std::regex domainname_regex("^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$");
-    std::string string = addr;
+    static const std::regex domainNameRegex(
+        "^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$");
     std::smatch match;
 
-    if (std::regex_match(string, match, domainname_regex, std::regex_constants::match_flag_type::format_default)) {
+    if (std::regex_match(addr, match, domainNameRegex)) {
         return true;
     }
 
@@ -141,62 +276,177 @@ bool Networking::isValidDomainName(const char* addr)
 }
 
 
-/// <summary>Gets the internal IP address of the user.</summary>
-/// <returns>Internal IP address</returns>
-std::string Networking::getInternalIPAddress()
+/// <summary>Send data through a websocket.</summary>
+/// <param name="host">Host to send the request to</param>
+/// <param name="port">Port to send the request to</param>
+/// <param name="protocol">Protocol to send the request over</param>
+/// <param name="sendBuf">Send buffer</param>
+/// <param name="sendBufSize">Size of the send buffer</param>
+/// <param name="recvBuf">Receive buffer</param>
+/// <param name="recvBufSize">Size of the receive buffer</param>
+/// <returns>Error code</returns>
+std::error_code Networking::NetworkRequest(const std::string& host, const unsigned short port, const int protocol,
+                                           const char* sendBuf, const size_t sendBufSize, char* recvBuf,
+                                           const size_t recvBufSize)
 {
-    int i;
-    std::string internalIPAddress;
-
-    // Variables used by GetIpAddrTable
-    PMIB_IPADDRTABLE pIPAddrTable;
-    DWORD dwSize = 0;
-    IN_ADDR IPAddr;
-
-    // Before calling AddIPAddress we use GetIpAddrTable to get
-    // an adapter to which we can add the IP.
-    pIPAddrTable = (MIB_IPADDRTABLE*)malloc(sizeof(MIB_IPADDRTABLE));
-
-    if (pIPAddrTable) {
-        // Make an initial call to GetIpAddrTable to get the
-        // necessary size into the dwSize variable
-        if (GetIpAddrTable(pIPAddrTable, &dwSize, 0) == ERROR_INSUFFICIENT_BUFFER) {
-            free(pIPAddrTable);
-            pIPAddrTable = (MIB_IPADDRTABLE*)malloc(dwSize);
-        }
-    }
-    if (pIPAddrTable) {
-        // Make a second call to GetIpAddrTable to get the actual data we want
-        if (GetIpAddrTable(pIPAddrTable, &dwSize, 0) == NO_ERROR) {
-            for (i = 0; i < (int)pIPAddrTable->dwNumEntries; i++) {
-                if (pIPAddrTable->table[i].wType & MIB_IPADDR_PRIMARY) {
-                    IPAddr.S_un.S_addr = (ULONG)pIPAddrTable->table[i].dwAddr;
-                    char ipBuf[sizeof "255.255.255.255"];
-                    internalIPAddress = inet_ntop(AF_INET, &IPAddr, ipBuf, sizeof ipBuf);
-                    if (!isValidIPv4(internalIPAddress.c_str()) || !isInternalIPv4(internalIPAddress.c_str())) {
-                        internalIPAddress.clear();
-                    }
-                }
-            }
-        }
-        free(pIPAddrTable);
-        pIPAddrTable = NULL;
+    // Initialize WinSock.
+    WSADATA wsaData;
+    int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    if (iResult != 0) {
+        return make_win32_error_code(iResult);
     }
 
-    return internalIPAddress;
+    // Determine socket type.
+    int sockType;
+    switch (protocol) {
+        case IPPROTO_TCP:
+            sockType = SOCK_STREAM;
+            break;
+        case IPPROTO_UDP:
+            sockType = SOCK_DGRAM;
+            break;
+        default:
+            WSACleanup();
+            return make_win32_error_code(WSAEINVAL);
+    }
+
+    // Set up the addrDest structure with the IP address and port of the receiver.
+    addrinfo hints{};
+    ZeroMemory(&hints, sizeof hints);
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = sockType;
+    hints.ai_protocol = protocol;
+    addrinfo* result = nullptr;
+    if (getaddrinfo(host.c_str(), std::to_string(port).c_str(), &hints, &result) != 0) {
+        const std::error_code error = make_winsock_error_code();
+        WSACleanup();
+        return error;
+    }
+    sockaddr destAddr = *result->ai_addr;
+
+    // Create a socket for sending data.
+    const SOCKET sendSocket = socket(AF_INET, sockType, protocol);
+    if (sendSocket == INVALID_SOCKET) {
+        const std::error_code error = make_winsock_error_code();
+        WSACleanup();
+        return error;
+    }
+
+    if (protocol == IPPROTO_TCP) {
+        if (connect(sendSocket, &destAddr, sizeof destAddr) == SOCKET_ERROR) {
+            const std::error_code error = make_winsock_error_code();
+            closesocket(sendSocket);
+            WSACleanup();
+            return error;
+        }
+    }
+
+    // Send a data to the receiver.
+    if (sendto(sendSocket, sendBuf, static_cast<int>(sendBufSize), NULL, &destAddr, sizeof destAddr) == SOCKET_ERROR) {
+        const std::error_code error = make_winsock_error_code();
+        closesocket(sendSocket);
+        WSACleanup();
+        return error;
+    }
+
+    // Wait until data received or timeout.
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET(sendSocket, &fds);
+    iResult = select(NULL, &fds, nullptr, nullptr, &NETWORK_TIMEOUT);
+    if (iResult == SOCKET_ERROR) {
+        const std::error_code error = make_winsock_error_code();
+        closesocket(sendSocket);
+        WSACleanup();
+        return error;
+    }
+    // Connection timed out.
+    if (iResult == 0) {
+        closesocket(sendSocket);
+        WSACleanup();
+        return make_win32_error_code(WSAETIMEDOUT);
+    }
+
+    if (recvBuf != nullptr) {
+        // Set up the addrRetDest structure for the IP address and port from the receiver.
+        sockaddr_in addrRetDest{};
+        int addrRetDestSize = sizeof addrRetDest;
+        // Receive a datagram from the receiver.
+        if (recvfrom(sendSocket, recvBuf, static_cast<int>(recvBufSize), NULL,
+                     reinterpret_cast<sockaddr*>(&addrRetDest), &addrRetDestSize) == SOCKET_ERROR) {
+            const std::error_code error = make_winsock_error_code();
+            closesocket(sendSocket);
+            WSACleanup();
+            return error;
+        }
+    }
+
+    closesocket(sendSocket);
+    WSACleanup();
+
+    return make_winsock_error_code();
 }
 
 
-/// <summary>Tries to parse the external IP address from a http responce.</summary>
-/// <param name="buffer">Http responce</param>
-/// <returns>External IP address</returns>
-std::string parseExternalIPAddressFromResponce(std::string buffer)
+/// <summary>Gets the internal IPv4 address of the user.</summary>
+/// <remarks>From https://docs.microsoft.com/en-us/windows/win32/api/iphlpapi/nf-iphlpapi-getipaddrtable </remarks>
+/// <returns>Error code</returns>
+std::error_code Networking::GetInternalIPAddress(std::string& ipAddr)
 {
-    size_t contentLengthOffset = buffer.find("Content-Length:") + 16;
-    size_t contentLengthCount = buffer.find('\n', contentLengthOffset);
-    int contentLength = strtol(buffer.substr(contentLengthOffset, contentLengthCount).c_str(), NULL, 10);
+    DWORD dwSize = 0;
+    DWORD dwRetVal = NO_ERROR;
+    PMIB_IPADDRTABLE pIPAddrTable = static_cast<PMIB_IPADDRTABLE>(malloc(sizeof MIB_IPADDRTABLE));
+    if (pIPAddrTable != nullptr) {
+        // Make an initial call to GetIpAddrTable to get the necessary size into the dwSize variable.
+        dwRetVal = GetIpAddrTable(pIPAddrTable, &dwSize, FALSE);
+        free(pIPAddrTable);
+        pIPAddrTable = nullptr;
+        if (dwRetVal == ERROR_INSUFFICIENT_BUFFER) {
+            pIPAddrTable = static_cast<PMIB_IPADDRTABLE>(malloc(dwSize));
+        }
+    }
+    if (pIPAddrTable != nullptr) {
+        // Make a second call to GetIpAddrTable to get the actual data we want.
+        dwRetVal = GetIpAddrTable(pIPAddrTable, &dwSize, 0);
+        if (dwRetVal == NO_ERROR) {
+            TRACE_LOG("got {} entries", pIPAddrTable->dwNumEntries);
+            for (size_t i = 0; i < pIPAddrTable->dwNumEntries; i++) {
+                if (pIPAddrTable->table[i].wType & MIB_IPADDR_PRIMARY) {
+                    IN_ADDR inAddr;
+                    inAddr.s_addr = static_cast<ULONG>(pIPAddrTable->table[i].dwAddr);
+                    ipAddr = IPv4ToString(&inAddr);
+                    TRACE_LOG("got " + ipAddr);
+                    if (IsPrivateIPv4(ipAddr)) {
+                        break;
+                    }
+                    ipAddr.clear();
+                }
+            }
+        }
+        else {
+            ERROR_LOG("failed to get ip addr table");
+        }
+        free(pIPAddrTable);
+        pIPAddrTable = nullptr;
+    }
+    else {
+        ERROR_LOG("failed to alloc ip addr table");
+    }
 
-    size_t addrOffset = buffer.find("\r\n\r\n");
+    return make_win32_error_code(dwRetVal);
+}
+
+
+/// <summary>Tries to parse the external IP address from a http response.</summary>
+/// <param name="buffer">Http response</param>
+/// <returns>External IP address</returns>
+std::string parseExternalIPAddressFromResponse(const std::string& buffer)
+{
+    const size_t contentLengthOffset = buffer.find("Content-Length:") + 16;
+    const size_t contentLengthCount = buffer.find('\n', contentLengthOffset);
+    const int contentLength = strtol(buffer.substr(contentLengthOffset, contentLengthCount).c_str(), nullptr, 10);
+
+    const size_t addrOffset = buffer.find("\r\n\r\n");
     if (addrOffset == std::string::npos) {
         return "";
     }
@@ -206,119 +456,42 @@ std::string parseExternalIPAddressFromResponce(std::string buffer)
 
 
 /// <summary>Tries to get the external IP address.</summary>
-/// <param name="addr">Contains the external IP address when threaded</param>
+/// <param name="host"></param>
+/// <param name="ipAddr">Contains the external IP address when threaded</param>
 /// <param name="threaded">Whether the action should be executed on another thread</param>
 /// <returns>External IP address</returns>
-std::string Networking::getExternalIPAddress(std::string host, std::string* addr, bool threaded)
+std::error_code Networking::GetExternalIPAddress(const std::string& host, std::string* ipAddr, const bool threaded)
 {
-    if (threaded && addr == nullptr) {
-        return "";
-    }
     if (threaded) {
-        std::thread(getExternalIPAddress, host, addr, false).detach();
-        return "";
+        std::thread(GetExternalIPAddress, host, ipAddr, false).detach();
+        return make_win32_error_code(NULL);
     }
 
-    // Initialize Winsock.
-    WSADATA wsaData = { 0 };
-    int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    if (iResult != 0) {
-        return "";
-    }
-
-    // Create a socket for sending data.
-    SOCKET sendSocket = INVALID_SOCKET;
-    sendSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (sendSocket == INVALID_SOCKET) {
-        WSACleanup();
-        return "";
-    }
-
-    // Set up the addrDest structure with the IP address and port of the receiver.
-    addrinfo hints;
-    addrinfo* result = NULL;
-    ZeroMemory(&hints, sizeof(hints));
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_protocol = IPPROTO_TCP;
-    if (getaddrinfo(host.c_str(), NULL, &hints, &result) != 0) {
-        closesocket(sendSocket);
-        WSACleanup();
-        return "";
-    }
-    sockaddr_in addrDest;
-    addrDest = *(sockaddr_in*)result->ai_addr;
-    addrDest.sin_family = AF_INET;
-    addrDest.sin_port = htons(80);
-
-    if (connect(sendSocket, (sockaddr*)&addrDest, sizeof addrDest) == SOCKET_ERROR) {
-        closesocket(sendSocket);
-        WSACleanup();
-        return "";
-    }
-
-    // Send a datagram to the receiver
     std::string sendBuf = "GET / HTTP/1.1\r\nHost: " + host + "\r\nConnection: close\r\n\r\n";
-    if (sendto(sendSocket, sendBuf.c_str(), (int)sendBuf.size(), 0, (sockaddr*)&addrDest, (int)sizeof addrDest) == SOCKET_ERROR) {
-        closesocket(sendSocket);
-        WSACleanup();
-        return "";
+    char recvBuf[1024] = "";
+    const std::error_code error = NetworkRequest(host, 80, IPPROTO_TCP, sendBuf.data(), sendBuf.size() + 1, recvBuf,
+                                                 sizeof recvBuf);
+    if (error) {
+        return error;
     }
 
-    // Wait until data received or timeout.
-    fd_set fds;
-    FD_ZERO(&fds);
-    FD_SET(sendSocket, &fds);
-    struct timeval tv;
-    tv.tv_sec = 3;
-    tv.tv_usec = 0;
-    iResult = select(NULL, &fds, NULL, NULL, &tv);
-    if (iResult == SOCKET_ERROR) {
-        closesocket(sendSocket);
-        WSACleanup();
-        return "";
-    }
-    // Connection timedout.
-    else if (iResult == 0) {
-        closesocket(sendSocket);
-        WSACleanup();
-        return "";
+    *ipAddr = parseExternalIPAddressFromResponse(recvBuf);
+    if (!IsExternalIPv4(*ipAddr)) {
+        ipAddr->clear();
+        return make_win32_error_code(WSAHOST_NOT_FOUND);
     }
 
-    // Set up the addrRetDest structure for the IP address and port from the receiver.
-    sockaddr_in addrRetDest;
-    int addrRetDestSize = sizeof addrRetDest;
-    // Recieve a datagram from the receiver.
-    char recvBuf[1024];
-    int recvBufLen = 1024;
-    if (recvfrom(sendSocket, recvBuf, recvBufLen, 0, (sockaddr*)&addrRetDest, &addrRetDestSize) == SOCKET_ERROR) {
-        closesocket(sendSocket);
-        WSACleanup();
-        return "";
-    }
-
-    closesocket(sendSocket);
-    WSACleanup();
-
-    std::string externalIPAddress = parseExternalIPAddressFromResponce(recvBuf);
-    if (!isValidIPv4(externalIPAddress.c_str()) || isInternalIPv4(externalIPAddress.c_str())) {
-        return "";
-    }
-
-    if (addr != nullptr) {
-        *addr = externalIPAddress;
-    }
-
-    return externalIPAddress;
+    return make_win32_error_code(NULL);
 }
 
 
 /// <summary>Tries ping host to see if they are reachable.</summary>
-/// <param name="IP">IP address of the host</param>
+/// <param name="host">Address of the host</param>
 /// <param name="port">Port of the server</param>
+/// <param name="result">Optional request status</param>
 /// <param name="threaded">Whether the action should be executed on another thread</param>
 /// <returns>Bool with if the host was reachable</returns>
-bool Networking::pingHost(std::string IP, unsigned short port, HostStatus* result, bool threaded)
+bool Networking::PingHost(const std::string& host, unsigned short port, HostStatus* result, const bool threaded)
 {
     if (threaded && result == nullptr) {
         return false;
@@ -327,90 +500,24 @@ bool Networking::pingHost(std::string IP, unsigned short port, HostStatus* resul
         if (result != nullptr) {
             *result = HostStatus::HOST_BUSY;
         }
-        std::thread(pingHost, IP, port, result, false).detach();
-
+        std::thread(PingHost, host, port, result, false).detach();
         return false;
     }
 
-    // Initialize Winsock.
-    WSADATA wsaData = { 0 };
-    int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    if (iResult != 0) {
+    const char sendBuf[] = "Hey host guy are you alive?";
+    const std::error_code error = NetworkRequest(host, port, IPPROTO_UDP, sendBuf, sizeof sendBuf);
+    if (error) {
+        if (error == make_win32_error_code(WSAETIMEDOUT)) {
+            if (result != nullptr) {
+                *result = HostStatus::HOST_TIMEOUT;
+            }
+            return false;
+        }
         if (result != nullptr) {
             *result = HostStatus::HOST_ERROR;
         }
-
         return false;
     }
-
-    // Create a socket for sending data.
-    SOCKET sendSocket = INVALID_SOCKET;
-    sendSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (sendSocket == INVALID_SOCKET) {
-        WSACleanup();
-        if (result != nullptr) {
-            *result = HostStatus::HOST_ERROR;
-        }
-
-        return false;
-    }
-
-    // Set up the addrDest structure with the IP address and port of the receiver.
-    sockaddr_in addrDest;
-    addrDest.sin_family = AF_INET;
-    addrDest.sin_port = htons(port);
-    if (inet_pton(addrDest.sin_family, IP.c_str(), &addrDest.sin_addr.s_addr) != 1) {
-        closesocket(sendSocket);
-        WSACleanup();
-        if (result != nullptr) {
-            *result = HostStatus::HOST_ERROR;
-        }
-
-        return false;
-    }
-
-    // Send a datagram to the receiver
-    const char* sendBuf = "Hey host guy are you alive?";
-    if (sendto(sendSocket, sendBuf, (int)strlen(sendBuf), 0, (sockaddr*)&addrDest, (int)sizeof addrDest) == SOCKET_ERROR) {
-        closesocket(sendSocket);
-        WSACleanup();
-        if (result != nullptr) {
-            *result = HostStatus::HOST_ERROR;
-        }
-
-        return false;
-    }
-
-    // Wait until data received or timeout.
-    fd_set fds;
-    FD_ZERO(&fds);
-    FD_SET(sendSocket, &fds);
-    struct timeval tv;
-    tv.tv_sec = 5;
-    tv.tv_usec = 0;
-    iResult = select(NULL, &fds, NULL, NULL, &tv);
-    if (iResult == SOCKET_ERROR) {
-        closesocket(sendSocket);
-        WSACleanup();
-        if (result != nullptr) {
-            *result = HostStatus::HOST_ERROR;
-        }
-
-        return false;
-    }
-    // Connection timedout.
-    else if (iResult == 0) {
-        closesocket(sendSocket);
-        WSACleanup();
-        if (result != nullptr) {
-            *result = HostStatus::HOST_TIMEOUT;
-        }
-
-        return false;
-    }
-
-    closesocket(sendSocket);
-    WSACleanup();
     if (result != nullptr) {
         *result = HostStatus::HOST_ONLINE;
     }

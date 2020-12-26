@@ -5,6 +5,7 @@ after which you can start the project through `source/RocketPlugin.sln`.
 ### Dependencies
 - [BakkesMod SDK](https://github.com/bakkesmodorg/BakkesModSDK)
 - [custom Dear ImGui build](https://github.com/Stanbroek/imgui)
+- [{fmt}](https://github.com/fmtlib/fmt)
 
 ### Structure of the Development Environment
 #### Debug

@@ -13,14 +13,11 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="Resource Files\Gamemodes">
-      <UniqueIdentifier>{99c4a39a-24ec-488b-b1aa-7a4af0df294f}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Resource Files\ImGui">
       <UniqueIdentifier>{18597224-b2ec-4033-901e-1ac0c4df7a77}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Resource Files\BakkesMod additions">
-      <UniqueIdentifier>{9a903a13-f3b7-4034-8960-e972c7ac8f7e}</UniqueIdentifier>
+    <Filter Include="Resource Files\GameModes">
+      <UniqueIdentifier>{99c4a39a-24ec-488b-b1aa-7a4af0df294f}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -28,16 +25,16 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="gamemodes\Drainage.h">
-      <Filter>Resource Files\Gamemodes</Filter>
+      <Filter>Resource Files\GameModes</Filter>
     </ClInclude>
     <ClInclude Include="gamemodes\CrazyRumble.h">
-      <Filter>Resource Files\Gamemodes</Filter>
+      <Filter>Resource Files\GameModes</Filter>
     </ClInclude>
     <ClInclude Include="gamemodes\Zombies.h">
-      <Filter>Resource Files\Gamemodes</Filter>
+      <Filter>Resource Files\GameModes</Filter>
     </ClInclude>
     <ClInclude Include="gamemodes\BoostSteal.h">
-      <Filter>Resource Files\Gamemodes</Filter>
+      <Filter>Resource Files\GameModes</Filter>
     </ClInclude>
     <ClInclude Include="Networking.h">
       <Filter>Header Files</Filter>
@@ -70,22 +67,22 @@
       <Filter>Resource Files\ImGui</Filter>
     </ClInclude>
     <ClInclude Include="gamemodes\KeepAway.h">
-      <Filter>Resource Files\Gamemodes</Filter>
+      <Filter>Resource Files\GameModes</Filter>
     </ClInclude>
     <ClInclude Include="gamemodes\Tag.h">
-      <Filter>Resource Files\Gamemodes</Filter>
+      <Filter>Resource Files\GameModes</Filter>
     </ClInclude>
     <ClInclude Include="gamemodes\Juggernaut.h">
-      <Filter>Resource Files\Gamemodes</Filter>
+      <Filter>Resource Files\GameModes</Filter>
     </ClInclude>
-    <ClInclude Include="bakkesmod_additions\cvarmanagerwrapperdebug.h">
-      <Filter>Resource Files\BakkesMod additions</Filter>
+    <ClInclude Include="GameModes\BoostMod.h">
+      <Filter>Resource Files\GameModes</Filter>
     </ClInclude>
-    <ClInclude Include="bakkesmod_additions\parser.h">
-      <Filter>Resource Files\BakkesMod additions</Filter>
+    <ClInclude Include="Version.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="gamemodes\BoostMod.h">
-      <Filter>Resource Files\Gamemodes</Filter>
+    <ClInclude Include="Resource.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -96,16 +93,16 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="gamemodes\Drainage.cpp">
-      <Filter>Resource Files\Gamemodes</Filter>
+      <Filter>Resource Files\GameModes</Filter>
     </ClCompile>
     <ClCompile Include="gamemodes\CrazyRumble.cpp">
-      <Filter>Resource Files\Gamemodes</Filter>
+      <Filter>Resource Files\GameModes</Filter>
     </ClCompile>
     <ClCompile Include="gamemodes\Zombies.cpp">
-      <Filter>Resource Files\Gamemodes</Filter>
+      <Filter>Resource Files\GameModes</Filter>
     </ClCompile>
     <ClCompile Include="gamemodes\BoostSteal.cpp">
-      <Filter>Resource Files\Gamemodes</Filter>
+      <Filter>Resource Files\GameModes</Filter>
     </ClCompile>
     <ClCompile Include="UPnPClient.cpp">
       <Filter>Source Files</Filter>
@@ -138,19 +135,29 @@
       <Filter>Resource Files\ImGui</Filter>
     </ClCompile>
     <ClCompile Include="gamemodes\KeepAway.cpp">
-      <Filter>Resource Files\Gamemodes</Filter>
+      <Filter>Resource Files\GameModes</Filter>
     </ClCompile>
     <ClCompile Include="gamemodes\Tag.cpp">
-      <Filter>Resource Files\Gamemodes</Filter>
+      <Filter>Resource Files\GameModes</Filter>
     </ClCompile>
     <ClCompile Include="gamemodes\Juggernaut.cpp">
-      <Filter>Resource Files\Gamemodes</Filter>
+      <Filter>Resource Files\GameModes</Filter>
+    </ClCompile>
+    <ClCompile Include="GameModes\BoostMod.cpp">
+      <Filter>Resource Files\GameModes</Filter>
     </ClCompile>
     <ClCompile Include="ExternalFunctions.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="RLConstants.inc">
       <Filter>Resource Files</Filter>
-    </ClCompile>
-    <ClCompile Include="gamemodes\BoostMod.cpp">
-      <Filter>Resource Files\Gamemodes</Filter>
-    </ClCompile>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="RocketPlugin.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
   </ItemGroup>
 </Project>

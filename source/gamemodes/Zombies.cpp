@@ -1,170 +1,132 @@
-// gamemodes/Zombies.cpp
-// A zombie survival gamemode for Rocket Plugin.
+// GameModes/Zombies.cpp
+// A zombie survival game mode for Rocket Plugin.
 //
-// Author:       Stanbroek
-// Version:      0.6.3 15/7/20
-// BMSDKversion: 95
+// Author:        Stanbroek
+// Version:       0.2.1 24/12/20
+// BMSDK version: 95
 
 #include "Zombies.h"
 
 
-/// <summary>Get the player names in the current server.</summary>
-/// <returns>The player names in the current server</returns>
-std::vector<std::string> Zombies::getPlayerNames()
+/// <summary>Renders the available options for the game mode.</summary>
+void Zombies::RenderOptions()
 {
-	std::vector<std::string> getPlayerNames;
-
-	ServerWrapper server = gameWrapper->GetGameEventAsServer();
-	if (server.IsNull()) {
-		return getPlayerNames;
-	}
-
-	ArrayWrapper<PriWrapper> PRIs = server.GetPRIs();
-	for (int i = 0; i < PRIs.Count(); i++) {
-		PriWrapper PRI = PRIs.Get(i);
-		if (PRI.IsNull() || PRI.GetbBot()) {
-			continue;
-		}
-
-		getPlayerNames.push_back(PRI.GetPlayerName().ToString());
-	}
-
-	return getPlayerNames;
+    if (ImGui::InputInt("# Zombies", &numZombies)) {
+        rocketPlugin->Execute([this, newNumZombies = numZombies](GameWrapper*) {
+            prepareZombies(newNumZombies);
+        });
+    }
+    ImGui::Checkbox("Zombies Have Unlimited Boost", &zombiesHaveUnlimitedBoost);
+    ImGui::Combo("Player to hunt", &selectedPlayer, rocketPlugin->getPlayersNames(), "No players found");
 }
 
 
-/// <summary>Get the players in the current server.</summary>
-/// <param name='server'><see cref="ServerWrapper"/> instance of the current server</param>
-/// <returns>The players in the current server</returns>
-std::vector<PriWrapper> Zombies::getPlayers(ServerWrapper server)
+/// <summary>Gets if the game mode is active.</summary>
+/// <returns>Bool with if the game mode is active</returns>
+bool Zombies::IsActive()
 {
-	std::vector<PriWrapper> players;
-	ArrayWrapper<PriWrapper> PRIs = server.GetPRIs();
-	for (int i = 0; i < PRIs.Count(); i++) {
-		PriWrapper PRI = PRIs.Get(i);
-		if (PRI.IsNull() || PRI.GetbBot()) {
-			continue;
-		}
-
-		players.push_back(PRI);
-	}
-
-	return players;
+    return isActive;
 }
 
 
-/// <summary>Sets the bots to be able to join next reset.</summary>
-void Zombies::prepareZombies(int newNumBots)
+/// <summary>Activates the game mode.</summary>
+void Zombies::Activate(const bool active)
 {
-	ServerWrapper server = gameWrapper->GetGameEventAsServer();
-	if (server.IsNull()) {
-		return;
-	}
-	int numPlayers = server.GetNumHumans();
+    if (active && !isActive) {
+        HookEventWithCaller<ServerWrapper>("Function GameEvent_Soccar_TA.Active.Tick",
+                                           [this](const ServerWrapper& caller, void*, const std::string&) {
+                                               onTick(caller);
+                                           });
+        HookEvent("Function TAGame.GameEvent_TA.Init", [this](const std::string&) {
+            prepareZombies(numZombies);
+        });
+        prepareZombies(numZombies);
+    }
+    else if (!active && isActive) {
+        UnhookEvent("Function GameEvent_Soccar_TA.Active.Tick");
+        UnhookEvent("Function TAGame.GameEvent_Soccar_TA.InitGame");
+        rocketPlugin->resetBalls();
+    }
 
-	server.SetUnfairTeams(true);
-	server.SetbFillWithAI(true);
-	server.SetMaxPlayers(numPlayers + newNumBots);
-	server.SetMaxTeamSize(newNumBots);
-	server.SetNumBots(newNumBots);
+    isActive = active;
+}
+
+
+/// <summary>Gets the game modes name.</summary>
+/// <returns>The game modes name</returns>
+std::string Zombies::GetGameModeName()
+{
+    return "Zombies";
+}
+
+
+/// <summary>Updates the number of zombies that chase you.</summary>
+/// <param name="newNumZombies">Number of zombies that chase you</param>
+void Zombies::prepareZombies(const int newNumZombies) const
+{
+    ServerWrapper game = gameWrapper->GetGameEventAsServer();
+    if (game.IsNull()) {
+        ERROR_LOG("could not get the game");
+        return;
+    }
+
+    game.SetUnfairTeams(true);
+    game.SetbFillWithAI(true);
+    rocketPlugin->prepareBots(newNumZombies);
+    rocketPlugin->setBallsScale(0.01f);
 }
 
 
 /// <summary>Updates the game every game tick.</summary>
 void Zombies::onTick(ServerWrapper server)
 {
-	if (server.IsNull()) {
-		return;
-	}
+    if (server.IsNull()) {
+        ERROR_LOG("could not get the server");
+        return;
+    }
 
-	std::vector<PriWrapper> players;
-	ArrayWrapper<PriWrapper> PRIs = server.GetPRIs();
-	for (int i = 0; i < PRIs.Count(); i++) {
-		PriWrapper PRI = PRIs.Get(i);
-		if (PRI.IsNull() || PRI.GetbBot()) {
-			if (zombiesHaveUnlimitedBoost) {
-				CarWrapper car = PRI.GetCar();
-				if (car.IsNull()) {
-					continue;
-				}
+    std::vector<PriWrapper> players;
+    ArrayWrapper<PriWrapper> pris = server.GetPRIs();
+    for (int i = 0; i < pris.Count(); i++) {
+        PriWrapper pri = pris.Get(i);
+        if (pri.IsNull() || pri.GetbBot()) {
+            if (zombiesHaveUnlimitedBoost) {
+                CarWrapper car = pri.GetCar();
+                if (car.IsNull()) {
+                    continue;
+                }
 
-				BoostWrapper boostComponent = car.GetBoostComponent();
-				if (boostComponent.IsNull()) {
-					continue;
-				}
+                BoostWrapper boostComponent = car.GetBoostComponent();
+                if (boostComponent.IsNull()) {
+                    continue;
+                }
 
-				boostComponent.SetBoostAmount(100.0f);
-			}
-			continue;
-		}
+                boostComponent.SetBoostAmount(100.0f);
+            }
+            continue;
+        }
 
-		players.push_back(PRI);
-	}
+        players.push_back(pri);
+    }
 
-	if (selectedPlayer >= (int)players.size()) {
-		selectedPlayer = 0;
-		return;
-	}
+    if (selectedPlayer >= players.size()) {
+        selectedPlayer = 0;
+        ERROR_LOG("selected player is out of range");
+        return;
+    }
 
-	CarWrapper target = players[selectedPlayer].GetCar();
-	if (target.IsNull()) {
-		return;
-	}
+    CarWrapper target = players[selectedPlayer].GetCar();
+    if (target.IsNull()) {
+        ERROR_LOG("could not get the target");
+        return;
+    }
 
-	BallWrapper ball = server.GetBall();
-	if (ball.IsNull()) {
-		return;
-	}
+    BallWrapper ball = server.GetBall();
+    if (ball.IsNull()) {
+        ERROR_LOG("could not get the ball");
+        return;
+    }
 
-	ball.SetDrawScale(0.01f);
-	ball.SetBallScale(0.01f);
-	ball.SetReplicatedBallScale(0.01f);
-	ball.SetVelocity(Vector(0, 0, 1));
-	ball.SetLocation(target.GetLocation()); 
-}
-
-
-/// <summary>Renders the available options for the gamemode.</summary>
-void Zombies::RenderOptions()
-{
-	if (ImGui::InputInt("# Zombies", &numZombies)) {
-		gameWrapper->Execute([this, newnumZombies = numZombies](GameWrapper*) {
-			prepareZombies(newnumZombies);
-		});
-	}
-	ImGui::Checkbox("Zombies Have Unlimited Boost", &zombiesHaveUnlimitedBoost);
-	ImGui::Combo("Player to hunt", &selectedPlayer, getPlayerNames(), "No players found");
-}
-
-
-/// <summary>Gets if the gamemode is active.</summary>
-/// <returns>Bool with if the gamemode is active</returns>
-bool Zombies::IsActive()
-{
-	return isActive;
-}
-
-
-/// <summary>Activates the gamemode.</summary>
-void Zombies::Activate(bool active)
-{
-	if (active && !isActive) {
-        HookEventWithCaller<ServerWrapper>("Function GameEvent_Soccar_TA.Active.Tick", std::bind(&Zombies::onTick, this, std::placeholders::_1));
-        HookEvent("Function TAGame.GameEvent_Soccar_TA.InitGame", std::bind(&Zombies::prepareZombies, this, numZombies));
-	}
-	else if (!active && isActive) {
-        UnhookEvent("Function GameEvent_Soccar_TA.Active.Tick");
-        UnhookEvent("Function TAGame.GameEvent_Soccar_TA.InitGame");
-		rocketPlugin->resetBalls();
-	}
-
-	isActive = active;
-}
-
-
-/// <summary>Gets the gamemodes name.</summary>
-/// <returns>The gamemodes name</returns>
-std::string Zombies::GetGamemodeName()
-{
-	return "Zombies";
+    ball.SetVelocity(Vector(0, 0, 1));
+    ball.SetLocation(target.GetLocation());
 }

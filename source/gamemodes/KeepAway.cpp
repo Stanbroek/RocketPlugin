@@ -1,114 +1,65 @@
-// gamemodes/KeepAway.cpp
+// GameModes/KeepAway.cpp
 // Touch the ball to get points.
 //
-// Author:       Stanbroek
-// Version:      0.6.3 15/7/20
-// BMSDKversion: 95
+// Author:        Stanbroek
+// Version:       0.2.0 24/12/20
+// BMSDK version: 95
 
 #include "KeepAway.h"
 
 
-/// <summary>Updates the game every game tick.</summary>
-/// <remarks>Gets called on 'Function GameEvent_Soccar_TA.Active.Tick'.</remarks>
-/// <param name="server"><see cref="ServerWrapper"/> instance of the server</param>
-/// <param name="params">Delay since last update</param>
-void KeepAway::onTick(ServerWrapper server, void* params)
-{
-    if (server.IsNull()) {
-        return;
-    }
-
-    // dt since last tick in seconds
-    float dt = *((float*)params);
-    timeSinceLastPoint += dt;
-    if (timeSinceLastPoint < 1 / pointPerSec || timeSinceLastPoint == 0) {
-        return;
-    }
-
-    std::vector<PriWrapper> players = rocketPlugin->getPlayers(true);
-    for (PriWrapper player : players) {
-        if (player.GetPlayerID() == lastTouched) {
-            player.SetMatchScore(player.GetMatchScore() + (int)roundf(pointPerSec * timeSinceLastPoint));
-        }
-    }
-
-    timeSinceLastPoint = fmod(timeSinceLastPoint, 1 / pointPerSec);
-}
-
-
-/// <summary>Disables gettings score from normal events.</summary>
-/// <remarks>Gets called on 'Function TAGame.PRI_TA.GiveScore'.</remarks>
-/// <param name="actor">instance of the PRI as <see cref="ActorWrapper"/></param>
-void KeepAway::onGiveScorePre(ActorWrapper actor)
-{
-    if (enableNormalScore || actor.IsNull()) {
-        return;
-    }
-
-    PriWrapper player = PriWrapper(actor.memory_address);
-    lastNormalScore = player.GetMatchScore();
-}
-
-
-/// <summary>Disables gettings score from normal events.</summary>
-/// <remarks>Gets called on 'Function TAGame.PRI_TA.GiveScore'.</remarks>
-/// <param name="actor">instance of the PRI as <see cref="ActorWrapper"/></param>
-void KeepAway::onGiveScorePost(ActorWrapper actor)
-{
-    if (enableNormalScore || actor.IsNull()) {
-        return;
-    }
-
-    PriWrapper player = PriWrapper(actor.memory_address);
-    player.SetMatchScore(lastNormalScore);
-}
-
-
-/// <summary>Check who touched the ball.</summary>
-/// <remarks>Gets called on 'Function TAGame.Ball_TA.EventCarTouch'.</remarks>
-/// <param name="server"><see cref="BallWrapper"/> instance of the ball</param>
-/// <param name="params">The params the function got called with</param>
-void KeepAway::onCarTouch(BallWrapper, void*)
-{
-    cvarManager->error_log("function not implemented.");
-}
-
-
-/// <summary>Renders the available options for the gamemode.</summary>
+/// <summary>Renders the available options for the game mode.</summary>
 void KeepAway::RenderOptions()
 {
     ImGui::Checkbox("Count Rumble Touches", &enableRumbleTouches);
     ImGui::SameLine();
     ImGui::Checkbox("Count Normal Points", &enableNormalScore);
-    if (ImGui::SliderFloat("##PointsPerSecond", &pointPerSec, 0.1f, 10, "%.1f points per second")) {
-        if (pointPerSec <= 0) {
-            pointPerSec = 0.1f;
+    if (ImGui::SliderFloat("##SecondsPerPoint", &secPerPoint, 0.1f, 10, "%.1f seconds delay per point")) {
+        if (secPerPoint < 0.1f) {
+            secPerPoint = 0.1f;
         }
+    }
+    if (ImGui::Button("Reset points")) {
+        rocketPlugin->Execute([this](GameWrapper*) {
+            resetPoints();
+        });
     }
     ImGui::Separator();
 
-    ImGui::TextWrapped("Gamemode suggested by: kennyak90");
+    ImGui::TextWrapped("Game mode suggested by: kennyak90");
 }
 
 
-/// <summary>Gets if the gamemode is active.</summary>
-/// <returns>Bool with if the gamemode is active</returns>
+/// <summary>Gets if the game mode is active.</summary>
+/// <returns>Bool with if the game mode is active</returns>
 bool KeepAway::IsActive()
 {
     return isActive;
 }
 
 
-/// <summary>Activates the gamemode.</summary>
-void KeepAway::Activate(bool active)
+/// <summary>Activates the game mode.</summary>
+void KeepAway::Activate(const bool active)
 {
     if (active && !isActive) {
-        lastTouched = -1;
-        HookEventWithCaller<ServerWrapper>("Function GameEvent_Soccar_TA.Active.Tick", std::bind(&KeepAway::onTick, this, std::placeholders::_1, std::placeholders::_2));
-        HookEventWithCaller<ActorWrapper>("Function TAGame.PRI_TA.GiveScore", std::bind(&KeepAway::onGiveScorePre, this, std::placeholders::_1));
-        HookEventWithCallerPost<ActorWrapper>("Function TAGame.PRI_TA.GiveScore", std::bind(&KeepAway::onGiveScorePost, this, std::placeholders::_1));
-        //HookEventWithCaller<CarWrapper>("Function TAGame.Car_TA.EventHitBall", std::bind(&KeepAway::onBallTouch, this, std::placeholders::_1, std::placeholders::_2));
-        HookEventWithCaller<BallWrapper>("Function TAGame.Ball_TA.EventCarTouch", std::bind(&KeepAway::onCarTouch, this, std::placeholders::_1, std::placeholders::_2));
+        lastTouched = emptyPlayer;
+        timeSinceLastPoint = 0;
+        HookEventWithCaller<ServerWrapper>("Function GameEvent_Soccar_TA.Active.Tick",
+                                           [this](const ServerWrapper& caller, void* params, const std::string&) {
+                                               onTick(caller, params);
+                                           });
+        HookEventWithCaller<ActorWrapper>("Function TAGame.PRI_TA.GiveScore",
+                                          [this](const ActorWrapper& caller, void*, const std::string&) {
+                                              onGiveScorePre(caller);
+                                          });
+        HookEventWithCallerPost<ActorWrapper>("Function TAGame.PRI_TA.GiveScore",
+                                              [this](const ActorWrapper& caller, void*, const std::string&) {
+                                                  onGiveScorePost(caller);
+                                              });
+        HookEventWithCaller<BallWrapper>("Function TAGame.Ball_TA.EventCarTouch",
+                                         [this](const BallWrapper&, void* params, const std::string&) {
+                                             onCarTouch(params);
+                                         });
     }
     else if (!active && isActive) {
         UnhookEvent("Function GameEvent_Soccar_TA.Active.Tick");
@@ -121,9 +72,112 @@ void KeepAway::Activate(bool active)
 }
 
 
-/// <summary>Gets the gamemodes name.</summary>
-/// <returns>The gamemodes name</returns>
-std::string KeepAway::GetGamemodeName()
+/// <summary>Gets the game modes name.</summary>
+/// <returns>The game modes name</returns>
+std::string KeepAway::GetGameModeName()
 {
     return "Keep Away";
+}
+
+
+/// <summary>Updates the game every game tick.</summary>
+/// <remarks>Gets called on 'Function GameEvent_Soccar_TA.Active.Tick'.</remarks>
+/// <param name="server"><see cref="ServerWrapper"/> instance of the server</param>
+/// <param name="params">Delay since last update</param>
+void KeepAway::onTick(ServerWrapper server, void* params)
+{
+    if (server.IsNull()) {
+        ERROR_LOG("could not get the server");
+        return;
+    }
+
+    if (lastTouched == emptyPlayer) {
+        return;
+    }
+
+    // dt since last tick in seconds
+    const float dt = *static_cast<float*>(params);
+    timeSinceLastPoint += dt;
+    if (timeSinceLastPoint < secPerPoint) {
+        return;
+    }
+
+    const int points = static_cast<int>(floorf(timeSinceLastPoint / secPerPoint));
+    std::vector<PriWrapper> players = rocketPlugin->getPlayers(true);
+    for (PriWrapper player : players) {
+        if (player.GetUniqueIdWrapper().GetUID() == lastTouched) {
+            player.SetMatchScore(player.GetMatchScore() + points);
+            player.ForceNetUpdate2();
+            TeamInfoWrapper team = player.GetTeam();
+            if (!team.IsNull()) {
+                rocketPlugin->setScore(player.GetTeamNum(), team.GetScore() + points);
+            }
+            else {
+                WARNING_LOG("could not get players team");
+            }
+        }
+    }
+    
+    timeSinceLastPoint -= static_cast<float>(points) * secPerPoint;
+}
+
+
+/// <summary>Disables getting score from normal events.</summary>
+/// <remarks>Gets called on 'Function TAGame.PRI_TA.GiveScore'.</remarks>
+/// <param name="actor">instance of the PRI as <see cref="ActorWrapper"/></param>
+void KeepAway::onGiveScorePre(ActorWrapper actor)
+{
+    if (enableNormalScore) {
+        return;
+    }
+    if (actor.IsNull()) {
+        ERROR_LOG("could not get the actor");
+        return;
+    }
+
+    PriWrapper player = PriWrapper(actor.memory_address);
+    lastNormalScore = player.GetMatchScore();
+}
+
+
+/// <summary>Disables getting score from normal events.</summary>
+/// <remarks>Gets called on 'Function TAGame.PRI_TA.GiveScore'.</remarks>
+/// <param name="actor">instance of the PRI as <see cref="ActorWrapper"/></param>
+void KeepAway::onGiveScorePost(ActorWrapper actor) const
+{
+    if (enableNormalScore) {
+        return;
+    }
+    if (actor.IsNull()) {
+        ERROR_LOG("could not get the actor");
+        return;
+    }
+
+    PriWrapper player = PriWrapper(actor.memory_address);
+    player.SetMatchScore(lastNormalScore);
+    player.ForceNetUpdate2();
+}
+
+
+/// <summary>Resets the points off all players in the game.</summary>
+void KeepAway::resetPoints()
+{
+    lastTouched = emptyPlayer;
+    timeSinceLastPoint = 0;
+
+    ServerWrapper game = rocketPlugin->getGame();
+    if (game.IsNull()) {
+        ERROR_LOG("could not get local game");
+        return;
+    }
+    
+    for (PriWrapper player : game.GetPRIs()) {
+        if (player.IsNull()) {
+            WARNING_LOG("could not get pri");
+            continue;
+        }
+
+        player.SetMatchScore(0);
+        player.ForceNetUpdate2();
+    }
 }

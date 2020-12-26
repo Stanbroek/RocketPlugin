@@ -1,14 +1,31 @@
 #pragma once
-#include <string>
+#include <functional>
 #include <vector>
+#include <string>
 #include <thread>
 #include <mutex>
-#include <functional>
+
+#include "utils/stringify.h"
+#include "utils/cvarmanagerwrapperdebug.h"
+
+#define DELETE_DEFAULTED_FUNCTIONS(cls) \
+    cls(const cls&) = delete; \
+    cls(cls&&) = delete; \
+    cls& operator=(const cls&) = delete; \
+    cls& operator=(cls&&) = delete
 
 
-class Networking
+namespace Networking
 {
-public:
+    enum class DestAddrType
+    {
+        UNKNOWN_ADDR,
+        PRIVATE_ADDR,
+        INTERNL_ADDR,
+        HAMACHI_ADDR,
+        EXTERNL_ADDR
+    };
+
     enum class HostStatus
     {
         HOST_UNKNOWN,
@@ -18,14 +35,25 @@ public:
         HOST_ONLINE,
     };
 
-    static bool isValidIPv4(const char* IPAddr);
-    static bool isInternalIPv4(const char* IPAddr);
-    static bool isHamachiAddr(const char* IPAddr);
-    static bool isValidDomainName(const char* addr);
-    static std::string getInternalIPAddress();
-    static std::string getExternalIPAddress(std::string host, std::string* IPAddr = nullptr, bool threaded = false);
-    static bool pingHost(std::string IP, unsigned short port, HostStatus* result = nullptr, bool threaded = false);
-};
+    DestAddrType GetDestAddrType(const char* addr);
+    std::string GetHostStatusHint(DestAddrType addrType, HostStatus hostStatus);
+
+    std::string IPv4ToString(const void* addr);
+
+    bool IsValidPort(int port);
+    bool IsValidIPv4(const std::string& ipAddr);
+    bool IsPrivateIPv4(const std::string& ipAddr);
+    bool IsExternalIPv4(const std::string& ipAddr);
+    bool IsHamachiIPv4(const std::string& ipAddr);
+    bool IsValidDomainName(const std::string& addr);
+
+    std::error_code NetworkRequest(const std::string& host, unsigned short port, int protocol, const char* sendBuf,
+                                   size_t sendBufSize, char* recvBuf = nullptr, size_t recvBufSize = 0);
+    std::error_code GetInternalIPAddress(std::string& ipAddr);
+    std::error_code GetExternalIPAddress(const std::string& host, std::string* ipAddr, bool threaded = false);
+
+    bool PingHost(const std::string& host, unsigned short port, HostStatus* result = nullptr, bool threaded = false);
+}
 
 
 /// <summary>Threaded class that queues <see cref="job_t"/> to be executed.</summary>
@@ -37,118 +65,126 @@ public:
 
     WorkerThread();
     ~WorkerThread();
-    void addJob(job_t job);
-    void Entry();
+    DELETE_DEFAULTED_FUNCTIONS(WorkerThread);
+
+    void addJob(const job_t& job);
+    void entry();
 private:
-    std::unique_ptr<std::thread> thread;
-    std::condition_variable      queuePending;
-    std::mutex                   queueMutex;
-    std::list<job_t>             jobQueue;
-    bool                         wantExit;
+    std::thread thread;
+    std::condition_variable queuePending;
+    std::mutex queueMutex;
+    std::list<job_t> jobQueue;
+    bool wantExit;
 };
 
 
-// Predefine types.
-struct IUPnPServices;
+// Predefine types without including them.
 struct IUPnPService;
-struct IUPnPDevices;
 struct IUPnPDevice;
-#ifndef _HRESULT_DEFINED
-    typedef long HRESULT;
-#endif // !_HRESULT_DEFINED
 
 class UPnPClient
 {
+public:
+    UPnPClient();
+    ~UPnPClient();
+    DELETE_DEFAULTED_FUNCTIONS(UPnPClient);
+
+    void findDevices(bool threaded = true);
+    std::string getDiscoveryStatus();
+    bool discoverySearching() const { return discoveryStatus == DiscoveryStatus::DISCOVERY_BUSY; }
+    bool discoveryFailed() const { return discoveryStatus == DiscoveryStatus::DISCOVERY_ERROR; }
+    bool discoveryFinished() const { return discoveryStatus == DiscoveryStatus::DISCOVERY_FINISHED; }
+
+    void forwardPort(unsigned short internalPort, unsigned short externalPort, unsigned long portLeaseDuration,
+                     bool threaded = true);
+    std::string getForwardPortStatus() const;
+    bool serviceForwardPortFailed() const { return addPortMappingStatus == ServiceStatus::SERVICE_ERROR; }
+    bool serviceForwardPortActive() const { return addPortMappingStatus == ServiceStatus::SERVICE_BUSY; }
+    bool serviceForwardPortFinished() const { return addPortMappingStatus == ServiceStatus::SERVICE_UPDATED_PORT_MAPPING; }
+
+    void closePort(unsigned short externalPort, bool threaded = true);
+    std::string getClosePortStatus() const;
+    bool serviceClosePortFailed() const { return deletePortMappingStatus == ServiceStatus::SERVICE_ERROR; }
+    bool serviceClosePortActive() const { return deletePortMappingStatus == ServiceStatus::SERVICE_BUSY; }
+    bool serviceClosePortFinished() const { return deletePortMappingStatus == ServiceStatus::SERVICE_UPDATED_PORT_MAPPING; }
+
+    std::vector<unsigned short> getOpenPorts() const { return openPorts; }
+    char* getExternalIPAddressBuffer() const { return const_cast<char*>(externalIPAddress.data()); }
+
 private:
     enum class DiscoveryStatus
     {
         DISCOVERY_IDLE,
         DISCOVERY_ERROR,
         DISCOVERY_BUSY,
-        DISCOVERY_FOUND_GTO,
         DISCOVERY_FINISHED,
     };
+
     enum class ServiceStatus
     {
         SERVICE_IDLE,
         SERVICE_ERROR,
         SERVICE_BUSY,
-        SERVICE_GOT_EXT_IP,
-        SERVICE_ADDED_PORT_MAPPING,
-        SERVICE_FINISHED,
+        SERVICE_GOT_EXT_IP,  // Set by findDevices() after GTO service has been found.
+        SERVICE_UPDATED_PORT_MAPPING,  // Set when forwardPort() or closePort() is finished.
+        SERVICE_FINISHED,  // Set when findOpenPorts() is finished.
     };
 
-    HRESULT     TraverseServiceCollection(IUPnPServices* pusServices, bool saveServices = false);
-    HRESULT     TraverseDeviceCollection(IUPnPDevices* pDevices, unsigned int depth = 0, bool saveDevice = false);
-    void        DiscoverDevices(std::wstring TypeURI);
-    HRESULT     getInternalIPAddress();
-    std::string getDeviceFriendlyName(IUPnPDevice* pDevice);
-    void        clearDevices();
-
-    WorkerThread*   discoverThread = nullptr;
-    IUPnPService*   GTOServices[2] = { nullptr, nullptr };
-    IUPnPDevice*    GTODevice      = nullptr;
-    DiscoveryStatus discoveryStatus                = DiscoveryStatus::DISCOVERY_IDLE;
-    ServiceStatus   serviceAddPortMappingStatus    = ServiceStatus::SERVICE_IDLE;
-    ServiceStatus   serviceDeletePortMappingStatus = ServiceStatus::SERVICE_IDLE;
-    std::string     deviceFriendlyName;
-    std::string     findDevicesStatus;
-    std::string     forwardPortStatus;
-    std::string     closePortStatus;
-    HRESULT	        hResult = 0;
-
-    std::string    internalIPAddress;
-    unsigned short internalPort = 7777;
-
-public:
-    bool discoveryFailed()         { return discoveryStatus == DiscoveryStatus::DISCOVERY_ERROR; };
-    bool discoverySearching()      { return discoveryStatus == DiscoveryStatus::DISCOVERY_BUSY ||
-                                            discoveryStatus == DiscoveryStatus::DISCOVERY_FOUND_GTO; };
-    bool discoveryFinished()       { return discoveryStatus == DiscoveryStatus::DISCOVERY_FINISHED; };
-    bool serviceAddPortFailed()    { return serviceAddPortMappingStatus == ServiceStatus::SERVICE_ERROR; };
-    bool serviceAddPortActive()    { return serviceAddPortMappingStatus == ServiceStatus::SERVICE_BUSY; };
-    bool serviceDeletePortFailed() { return serviceDeletePortMappingStatus == ServiceStatus::SERVICE_ERROR; };
-    bool serviceDeletePortActive() { return serviceDeletePortMappingStatus == ServiceStatus::SERVICE_BUSY; };
-    
-    void forwardPort(unsigned short externalPort, unsigned long portLeaseDuration, bool threaded = true);
-    void closePort(unsigned short externalPort, bool threaded = true);
+    void discoverDevices(const std::wstring& typeUri);
     void findOpenPorts(bool threaded = true);
-    void findDevices(bool threaded = true);
-    
-    std::string getDiscoveryStatus();
-    std::string getforwardPortStatus();
-    std::string getclosePortStatus();
+    std::string getDeviceFriendlyName(IUPnPDevice* pDevice);
+    void clearDevices();
 
-    UPnPClient();
-    ~UPnPClient();
+    std::unique_ptr<WorkerThread> discoverThread;
+    IUPnPService* gtoServices[2] = {nullptr, nullptr};
+    IUPnPDevice* gtoDevice = nullptr;
+    std::string deviceFriendlyName;
 
+    std::error_code discoveryResult;
+    std::string discoveryReturnStatus;
+    DiscoveryStatus discoveryStatus = DiscoveryStatus::DISCOVERY_IDLE;
+
+    std::error_code addPortMappingResult;
+    std::string addPortMappingReturnStatus;
+    ServiceStatus addPortMappingStatus = ServiceStatus::SERVICE_IDLE;
+
+    std::error_code deletePortMappingResult;
+    std::string deletePortMappingReturnStatus;
+    ServiceStatus deletePortMappingStatus = ServiceStatus::SERVICE_IDLE;
+
+    std::string internalIPAddress;
+    std::string externalIPAddress = "Not found your external IP address yet.";
     std::vector<unsigned short> openPorts;
-    char externalIPAddress[64] = "Not found your external IP address yet.";
 };
 
 
 class P2PHost
 {
 public:
+    P2PHost();
+    ~P2PHost() = default;
+    DELETE_DEFAULTED_FUNCTIONS(P2PHost);
+
+    void findNATType(unsigned short port, bool threaded = true);
+    void punchPort(const std::string& ip, unsigned short port, bool threaded = true);
+    std::string getNATDesc() const;
+
     enum class NATType
     {
-        NAT_YET_DETERMINED,
+        NAT_NONE,
         NAT_SEARCHING,
         NAT_BLOCKED,
         NAT_FULL_CONE,
-        NAT_RESTRIC,
-        NAT_RESTRIC_PORT,
+        NAT_RESTRICTED,
+        NAT_RESTRICTED_PORT,
         NAT_SYMMETRIC,
         NAT_ERROR
     };
+
+    NATType getNATType() const { return natType; }
+
 private:
     std::unique_ptr<WorkerThread> discoverThread;
-    NATType natType = NATType::NAT_YET_DETERMINED;
-public:
-    void findNATType(unsigned short port, bool threaded = true);
-    void punchPort(std::string IP, unsigned short port, bool threaded = true);
-    std::string getNATDesc();
-    NATType     getNATType();
-    
-    P2PHost();
+    NATType natType = NATType::NAT_NONE;
+    std::error_code lastError;
 };
