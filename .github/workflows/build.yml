@@ -22,4 +22,4 @@ jobs:
     # Builds the Release version
     - name: Build Release x64
       shell: cmd
-      run: '"%MSBUILD_PATH%\MSBuild.exe" source/RocketPlugin.vcxproj /p:Platform=x64 /p:Configuration=Release'
+      run: '"%MSBUILD_PATH%\MSBuild.exe" source/RocketPlugin/RocketPlugin.vcxproj /p:Platform=x64 /p:Configuration=Release'
