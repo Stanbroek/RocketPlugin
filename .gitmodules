@@ -1,6 +1,12 @@
-[submodule "source/imgui"]
-	path = source/imgui
-	url = https://github.com/Stanbroek/imgui
-[submodule "source/fmt"]
-	path = source/fmt
-	url = https://github.com/fmtlib/fmt
+[submodule "source/External/ImGui"]
+	path = source/External/ImGui
+	url = https://github.com/Stanbroek/imgui.git
+[submodule "source/External/fmt"]
+	path = source/External/fmt
+	url = https://github.com/fmtlib/fmt.git
+[submodule "source/External/BakkesModSDK"]
+	path = source/External/BakkesModSDK
+	url = https://github.com/bakkesmodorg/BakkesModSDK.git
+[submodule "source/External/simdjson"]
+	path = source/External/simdjson
+	url = https://github.com/simdjson/simdjson.git
