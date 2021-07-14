@@ -1,6 +1,6 @@
 # Rocket Plugin - Open Source
 [![Made by SSQ](https://img.shields.io/badge/Made%20by-SSQ%E2%9B%84-lightgrey)]()
-[![Rocket Plugins](https://img.shields.io/badge/downloads-172k-blue)](https://bakkesplugins.com/plugins/view/26)
+[![Rocket Plugins](https://img.shields.io/badge/downloads-489k-blue)](https://bakkesplugins.com/plugins/view/26)
 [![Discord Server](https://img.shields.io/discord/667692939236868096)](https://discord.gg/hWPX9tq)
 [![Build Status](https://github.com/Stanbroek/RocketPlugin/actions/workflows/build.yml/badge.svg)](https://github.com/Stanbroek/RocketPlugin/actions/workflows/build.yml)
 
