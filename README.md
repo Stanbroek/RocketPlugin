@@ -1,6 +1,6 @@
 # Rocket Plugin - Open Source
 [![Made by SSQ](https://img.shields.io/badge/Made%20by-SSQ%E2%9B%84-lightgrey)]()
-[![Rocket Plugins](https://img.shields.io/badge/downloads-489k-blue)](https://bakkesplugins.com/plugins/view/26)
+[![Rocket Plugins](https://img.shields.io/badge/downloads-570k-blue)](https://bakkesplugins.com/plugins/view/26)
 [![Discord Server](https://img.shields.io/discord/667692939236868096)](https://discord.gg/hWPX9tq)
 [![Build Status](https://github.com/Stanbroek/RocketPlugin/actions/workflows/build.yml/badge.svg)](https://github.com/Stanbroek/RocketPlugin/actions/workflows/build.yml)
 
@@ -10,7 +10,7 @@ meant as an example for BakkesMod plugins with Dear ImGui windows. However, you 
 
 ## Rocket Plugin
 <a href="https://bakkesplugins.com/plugins/view/26">
-  <img src="https://d1des3ogmwbyhn.cloudfront.net/uploads/Stanbroek_11ec7f8de428c9ef147776c886f6862fc349cdf48b9ea343ba0eb5136a269d11.png" alt="Banner" title="Banner">
+  <img src="https://user-images.githubusercontent.com/32653890/129482626-baa4cd07-68b8-42dc-8b39-0500e63758c8.png" alt="Banner" title="Banner">
 </a>
   
 Rocket Plugins allows you to join any locally hosted game by direct IP, host games on any map including [workshop maps](https://steamcommunity.com/app/252950/workshop/) with support for limited and custom game modes and manipulating hosted games through a plethora of configurable settings.  
@@ -26,8 +26,8 @@ Rocket Plugins also includes a few experimental ways of automatically making you
   </thead>
   <tbody>
     <tr>
-      <th><img src="https://i.giphy.com/media/j29tQpGWVvYpdbEQIQ/giphy.webp" alt="Drainage" title="Drainage"></th>
-      <th><img src="https://i.giphy.com/media/jQsSVVP2nvkPjelDXj/giphy.webp" alt="Crazy Rumble Items" title="Crazy Rumble Items"></th>
+      <th><img src="https://user-images.githubusercontent.com/32653890/129482829-e002ae26-1f21-495c-affb-81b0bf2a2104.gif" alt="Drainage" title="Drainage"></th>
+      <th><img src="https://user-images.githubusercontent.com/32653890/129482959-a5874d49-e40e-4c08-a17c-6cecab581188.gif" alt="Crazy Rumble Items" title="Crazy Rumble Items"></th>
     </tr>
   </tbody>
   <thead>
@@ -38,8 +38,8 @@ Rocket Plugins also includes a few experimental ways of automatically making you
   </thead>
   <tbody>
     <tr>
-      <td><img src="https://i.giphy.com/media/gL9ZKfVGETH2XJoqj8/giphy.webp" alt="Zombies" title="Zombies"></td>
-      <td><img src="https://i.giphy.com/media/cmlyhA2kzF85UpAT3B/giphy.webp" alt="Boost Steal" title="Boost Steal"></td>
+      <td><img src="https://user-images.githubusercontent.com/32653890/129482872-8ab482bc-7efc-483e-8fc2-33400b3f4e24.gif" alt="Zombies" title="Zombies"></td>
+      <td><img src="https://user-images.githubusercontent.com/32653890/129482893-5c5e201f-1103-4008-a2d2-f1c25607fdbb.gif" alt="![Drainage]()" title="Boost Steal"></td>
     </tr>
   </tbody>
   <tbody>
