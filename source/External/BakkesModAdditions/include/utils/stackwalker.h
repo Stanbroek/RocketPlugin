@@ -35,8 +35,18 @@
  *
  * **********************************************************************/
 #pragma once
+#if defined(UNICODE) && !defined(DBGHELP_TRANSLATE_TCHAR)
+    #define DBGHELP_TRANSLATE_TCHAR
+
+    #define strcpy_s    wcscpy_s
+    #define strncpy_s   wcsncpy_s
+    #define _strdup     _wcsdup
+    #define strcat_s    wcscat_s
+    #define strlen      wcslen
+    #define strrchr     wcsrchr
+#endif
+
 #include <Windows.h>
-#include <cstdio>
 #include <cstdlib>
 #include <tchar.h>
 #pragma comment(lib, "version.lib")
@@ -48,11 +58,14 @@
 #include <Psapi.h>
 #pragma comment(lib, "Psapi.lib")
 
+#include "utils/stringify.h"
+
 #ifndef FMT_HEADER_ONLY
     #define FMT_HEADER_ONLY
 #endif
 #include "fmt/format.h"
-#include "se_exception.h"
+#include "fmt/xchar.h"
+#include "fmt/chrono.h"
 
 #define USED_CONTEXT_FLAGS      CONTEXT_FULL
 #define STACKWALK_MAX_NAMELEN   1024
@@ -62,6 +75,39 @@
         (c).ContextFlags = contextFlags;                            \
         RtlCaptureContext(&(c));                                    \
     } while (0);
+
+#if defined(UNICODE)
+static BOOL SymGetSymFromAddrW64(
+    _In_ HANDLE hProcess,
+    _In_ DWORD64 qwAddr,
+    _Out_opt_ PDWORD64 pdwDisplacement,
+    _Inout_ PIMAGEHLP_SYMBOLW64  Symbol
+)
+{
+    const SIZE_T       symSize = sizeof(IMAGEHLP_SYMBOL64) + STACKWALK_MAX_NAMELEN;
+    PIMAGEHLP_SYMBOL64 pSym = (PIMAGEHLP_SYMBOL64)malloc(symSize);
+    ZeroMemory(pSym, symSize);
+    pSym->SizeOfStruct  = Symbol->SizeOfStruct;
+    pSym->Address       = Symbol->Address;
+    pSym->Size          = Symbol->Size;
+    pSym->Flags         = Symbol->Flags;
+    pSym->MaxNameLength = Symbol->MaxNameLength;
+
+    BOOL ret = SymGetSymFromAddr64(hProcess, qwAddr, pdwDisplacement, pSym);
+    Symbol->SizeOfStruct    = pSym->SizeOfStruct;
+    Symbol->Address         = pSym->Address;
+    Symbol->Size            = pSym->Size;
+    Symbol->Flags           = pSym->Flags;
+    Symbol->MaxNameLength   = pSym->MaxNameLength;
+    MultiByteToWideChar(CP_UTF8, NULL, pSym->Name, pSym->MaxNameLength, Symbol->Name, Symbol->MaxNameLength);
+
+    return ret;
+}
+
+#define IMAGEHLP_SYMBOL64  IMAGEHLP_SYMBOLW64
+#define PIMAGEHLP_SYMBOL64  PIMAGEHLP_SYMBOLW64
+#define SymGetSymFromAddr64  SymGetSymFromAddrW64
+#endif
 
 extern std::filesystem::path BakkesModCrashesFolder;
 
@@ -106,7 +152,7 @@ public:
     } StackWalkOptions;
 
     StackWalker(int options = OptionsAll, // 'int' is by design, to combine the enum-flags
-        LPCSTR szSymPath = NULL,
+        LPCTSTR szSymPath = NULL,
         DWORD  dwProcessId = GetCurrentProcessId(),
         HANDLE hProcess = GetCurrentProcess())
     {
@@ -145,10 +191,10 @@ public:
             return TRUE;
 
         // Build the sym-path:
-        char* szSymPath = NULL;
+        PTCHAR szSymPath = NULL;
         if ((m_options & SymBuildPath) != 0) {
             const size_t nSymPathLen = 4096;
-            szSymPath = (char*)malloc(nSymPathLen);
+            szSymPath = (PTCHAR)malloc(nSymPathLen);
             if (szSymPath == NULL) {
                 SetLastError(ERROR_NOT_ENOUGH_MEMORY);
                 return FALSE;
@@ -157,24 +203,24 @@ public:
             // Now first add the (optional) provided sympath:
             if (m_szSymPath != NULL) {
                 strcat_s(szSymPath, nSymPathLen, m_szSymPath);
-                strcat_s(szSymPath, nSymPathLen, ";");
+                strcat_s(szSymPath, nSymPathLen, TEXT(";"));
             }
 
-            strcat_s(szSymPath, nSymPathLen, ".;");
+            strcat_s(szSymPath, nSymPathLen, TEXT(".;"));
 
             const size_t nTempLen = 1024;
-            char         szTemp[nTempLen];
+            TCHAR        szTemp[nTempLen];
             // Now add the current directory:
-            if (GetCurrentDirectoryA(nTempLen, szTemp) > 0) {
+            if (GetCurrentDirectory(nTempLen, szTemp) > 0) {
                 szTemp[nTempLen - 1] = 0;
                 strcat_s(szSymPath, nSymPathLen, szTemp);
-                strcat_s(szSymPath, nSymPathLen, ";");
+                strcat_s(szSymPath, nSymPathLen, TEXT(";"));
             }
 
             // Now add the path for the main-module:
-            if (GetModuleFileNameA(NULL, szTemp, nTempLen) > 0) {
+            if (GetModuleFileName(NULL, szTemp, nTempLen) > 0) {
                 szTemp[nTempLen - 1] = 0;
-                for (char* p = (szTemp + strlen(szTemp) - 1); p >= szTemp; --p) {
+                for (PTCHAR p = (szTemp + strlen(szTemp) - 1); p >= szTemp; --p) {
                     // locate the rightmost path separator
                     if ((*p == '\\') || (*p == '/') || (*p == ':')) {
                         *p = 0;
@@ -183,40 +229,39 @@ public:
                 } // for (search for path separator...)
                 if (strlen(szTemp) > 0) {
                     strcat_s(szSymPath, nSymPathLen, szTemp);
-                    strcat_s(szSymPath, nSymPathLen, ";");
+                    strcat_s(szSymPath, nSymPathLen, TEXT(";"));
                 }
             }
-            if (GetEnvironmentVariableA("_NT_SYMBOL_PATH", szTemp, nTempLen) > 0) {
+            if (GetEnvironmentVariable(TEXT("_NT_SYMBOL_PATH"), szTemp, nTempLen) > 0) {
                 szTemp[nTempLen - 1] = 0;
                 strcat_s(szSymPath, nSymPathLen, szTemp);
-                strcat_s(szSymPath, nSymPathLen, ";");
+                strcat_s(szSymPath, nSymPathLen, TEXT(";"));
             }
-            if (GetEnvironmentVariableA("_NT_ALTERNATE_SYMBOL_PATH", szTemp, nTempLen) > 0) {
+            if (GetEnvironmentVariable(TEXT("_NT_ALTERNATE_SYMBOL_PATH"), szTemp, nTempLen) > 0) {
                 szTemp[nTempLen - 1] = 0;
                 strcat_s(szSymPath, nSymPathLen, szTemp);
-                strcat_s(szSymPath, nSymPathLen, ";");
+                strcat_s(szSymPath, nSymPathLen, TEXT(";"));
             }
-            if (GetEnvironmentVariableA("SYSTEMROOT", szTemp, nTempLen) > 0) {
+            if (GetEnvironmentVariable(TEXT("SYSTEMROOT"), szTemp, nTempLen) > 0) {
                 szTemp[nTempLen - 1] = 0;
                 strcat_s(szSymPath, nSymPathLen, szTemp);
-                strcat_s(szSymPath, nSymPathLen, ";");
+                strcat_s(szSymPath, nSymPathLen, TEXT(";"));
                 // also add the "system32"-directory:
-                strcat_s(szTemp, nTempLen, "\\system32");
+                strcat_s(szTemp, nTempLen, TEXT("\\system32"));
                 strcat_s(szSymPath, nSymPathLen, szTemp);
-                strcat_s(szSymPath, nSymPathLen, ";");
+                strcat_s(szSymPath, nSymPathLen, TEXT(";"));
             }
 
             if ((m_options & SymUseSymSrv) != 0) {
-                if (GetEnvironmentVariableA("SYSTEMDRIVE", szTemp, nTempLen) > 0) {
+                if (GetEnvironmentVariable(TEXT("SYSTEMDRIVE"), szTemp, nTempLen) > 0) {
                     szTemp[nTempLen - 1] = 0;
-                    strcat_s(szSymPath, nSymPathLen, "SRV*");
+                    strcat_s(szSymPath, nSymPathLen, TEXT("SRV*"));
                     strcat_s(szSymPath, nSymPathLen, szTemp);
-                    strcat_s(szSymPath, nSymPathLen, "\\websymbols");
-                    strcat_s(szSymPath, nSymPathLen, "*https://msdl.microsoft.com/download/symbols;");
+                    strcat_s(szSymPath, nSymPathLen, TEXT("\\websymbols"));
+                    strcat_s(szSymPath, nSymPathLen, TEXT("*https://msdl.microsoft.com/download/symbols;"));
                 }
                 else
-                    strcat_s(szSymPath, nSymPathLen,
-                        "SRV*c:\\websymbols*https://msdl.microsoft.com/download/symbols;");
+                    strcat_s(szSymPath, nSymPathLen, TEXT("SRV*c:\\websymbols*https://msdl.microsoft.com/download/symbols;"));
             }
         } // if SymBuildPath
 
@@ -302,7 +347,7 @@ public:
             if (!StackWalk64(imageType, m_hProcess, hThread, &s, &c, myReadProcMem,
                 SymFunctionTableAccess64, SymGetModuleBase64, NULL)) {
                 // INFO: "StackWalk64" does not set "GetLastError"...
-                _ERROR_LOG("StackWalk64, GetLastError: {:X} (Address: {:p})", 0, (LPVOID)s.AddrPC.Offset);
+                BM_DEBUG_ERROR_LOG("StackWalk64, GetLastError: {:X} (Address: {:p})", 0, (LPVOID)s.AddrPC.Offset);
                 break;
             }
 
@@ -318,7 +363,7 @@ public:
             csEntry.moduleName[0] = 0;
             if (s.AddrPC.Offset == s.AddrReturn.Offset) {
                 if ((m_MaxRecursionCount > 0) && (curRecursionCount > m_MaxRecursionCount)) {
-                    _ERROR_LOG("StackWalk64-Endless-Callstack!, GetLastError: {:X} (Address: {:p})", 0, (LPVOID)s.AddrPC.Offset);
+                    BM_DEBUG_ERROR_LOG("StackWalk64-Endless-Callstack!, GetLastError: {:X} (Address: {:p})", 0, (LPVOID)s.AddrPC.Offset);
                     break;
                 }
                 curRecursionCount++;
@@ -334,7 +379,7 @@ public:
                     UnDecorateSymbolName(pSym->Name, csEntry.undFullName, STACKWALK_MAX_NAMELEN, UNDNAME_COMPLETE);
                 }
                 else {
-                    _ERROR_LOG("SymGetSymFromAddr64, GetLastError: {:X} (Address: {:p})", GetLastError(), (LPVOID)s.AddrPC.Offset);
+                    BM_DEBUG_ERROR_LOG("SymGetSymFromAddr64, GetLastError: {:X} (Address: {:p})", GetLastError(), (LPVOID)s.AddrPC.Offset);
                 }
 
                 // show line number info, NT5.0-method
@@ -344,7 +389,7 @@ public:
                     MyStrCpy(csEntry.lineFileName, STACKWALK_MAX_NAMELEN, Line.FileName);
                 }
                 else {
-                    _ERROR_LOG("SymGetLineFromAddr64, GetLastError: {:X} (Address: {:p})", GetLastError(), (LPVOID)s.AddrPC.Offset);
+                    BM_DEBUG_ERROR_LOG("SymGetLineFromAddr64, GetLastError: {:X} (Address: {:p})", GetLastError(), (LPVOID)s.AddrPC.Offset);
                 }
 
                 // show module info
@@ -352,34 +397,34 @@ public:
                     // got module info OK
                     switch (Module.SymType) {
                         case SymNone:
-                            csEntry.symTypeString = "-nosymbols-";
+                            csEntry.symTypeString = TEXT("-nosymbols-");
                             break;
                         case SymCoff:
-                            csEntry.symTypeString = "COFF";
+                            csEntry.symTypeString = TEXT("COFF");
                             break;
                         case SymCv:
-                            csEntry.symTypeString = "CV";
+                            csEntry.symTypeString = TEXT("CV");
                             break;
                         case SymPdb:
-                            csEntry.symTypeString = "PDB";
+                            csEntry.symTypeString = TEXT("PDB");
                             break;
                         case SymExport:
-                            csEntry.symTypeString = "-exported-";
+                            csEntry.symTypeString = TEXT("-exported-");
                             break;
                         case SymDeferred:
-                            csEntry.symTypeString = "-deferred-";
+                            csEntry.symTypeString = TEXT("-deferred-");
                             break;
                         case SymSym:
-                            csEntry.symTypeString = "SYM";
+                            csEntry.symTypeString = TEXT("SYM");
                             break;
                         case SymDia:
-                            csEntry.symTypeString = "DIA";
+                            csEntry.symTypeString = TEXT("DIA");
                             break;
                         case 8: //SymVirtual:
-                            csEntry.symTypeString = "Virtual";
+                            csEntry.symTypeString = TEXT("Virtual");
                             break;
                         default:
-                            _TRACE_LOG("symtype={:ld}", Module.SymType);
+                            BM_DEBUG_TRACE_LOG("symtype={:ld}", Module.SymType);
                             csEntry.symTypeString = NULL;
                             break;
                     }
@@ -389,7 +434,7 @@ public:
                     MyStrCpy(csEntry.loadedImageName, STACKWALK_MAX_NAMELEN, Module.LoadedImageName);
                 } // got module info OK
                 else
-                    _ERROR_LOG("SymGetModuleInfo64, GetLastError: {:X} (Address: {:p})", GetLastError(), (LPVOID)s.AddrPC.Offset);
+                    BM_DEBUG_ERROR_LOG("SymGetModuleInfo64, GetLastError: {:X} (Address: {:p})", GetLastError(), (LPVOID)s.AddrPC.Offset);
             } // we seem to have a valid PC
 
             CallStackEntryType et = nextEntry;
@@ -432,7 +477,7 @@ public:
         pSym->SizeOfStruct = sizeof(IMAGEHLP_SYMBOL64);
         pSym->MaxNameLength = STACKWALK_MAX_NAMELEN;
         if (SymGetSymFromAddr64(m_hProcess, dwAddress, &dwDisplacement, pSym) == FALSE) {
-            _ERROR_LOG("SymGetSymFromAddr64, GetLastError: {:X} (Address: {:p})", GetLastError(), (LPVOID)dwAddress);
+            BM_DEBUG_ERROR_LOG("SymGetSymFromAddr64, GetLastError: {:X} (Address: {:p})", GetLastError(), (LPVOID)dwAddress);
             return FALSE;
         }
         // Object name output
@@ -447,18 +492,18 @@ protected:
     typedef struct CallStackEntry
     {
         DWORD64 offset; // if 0, we have no valid entry
-        CHAR    name[STACKWALK_MAX_NAMELEN];
-        CHAR    undName[STACKWALK_MAX_NAMELEN];
-        CHAR    undFullName[STACKWALK_MAX_NAMELEN];
+        TCHAR    name[STACKWALK_MAX_NAMELEN];
+        TCHAR    undName[STACKWALK_MAX_NAMELEN];
+        TCHAR    undFullName[STACKWALK_MAX_NAMELEN];
         DWORD64 offsetFromSmybol;
         DWORD   offsetFromLine;
         DWORD   lineNumber;
-        CHAR    lineFileName[STACKWALK_MAX_NAMELEN];
+        TCHAR    lineFileName[STACKWALK_MAX_NAMELEN];
         DWORD   symType;
-        LPCSTR  symTypeString;
-        CHAR    moduleName[STACKWALK_MAX_NAMELEN];
+        LPCTSTR  symTypeString;
+        TCHAR    moduleName[STACKWALK_MAX_NAMELEN];
         DWORD64 baseOfImage;
-        CHAR    loadedImageName[STACKWALK_MAX_NAMELEN];
+        TCHAR    loadedImageName[STACKWALK_MAX_NAMELEN];
     } CallStackEntry;
 
     typedef enum CallStackEntryType
@@ -468,9 +513,9 @@ protected:
         lastEntry
     } CallStackEntryType;
 
-    virtual void OnSymInit(LPCSTR szSearchPath, DWORD symOptions, LPCSTR szUserName)
+    virtual void OnSymInit(LPCTSTR szSearchPath, DWORD symOptions, LPCTSTR szUserName)
     {
-        std::string buffer = fmt::format("SymInit: Symbol-SearchPath: '{:s}', symOptions: {:d}, UserName: '{:s}'",
+        auto buffer = fmt::format(TEXT("SymInit: Symbol-SearchPath: '{:s}', symOptions: {:d}, UserName: '{:s}'"),
             szSearchPath, symOptions, szUserName);
         OnOutput(buffer.c_str());
         // Getting the OS-version is deprecated.
@@ -484,63 +529,63 @@ protected:
         //	OnOutput(buffer.c_str());
         //}
     }
-    
-    virtual void OnLoadModule(LPCSTR img,
-        LPCSTR    mod,
+
+    virtual void OnLoadModule(LPCTSTR img,
+        LPCTSTR    mod,
         DWORD64   baseAddr,
         DWORD     size,
         DWORD     result,
-        LPCSTR    symType,
-        LPCSTR    pdbName,
+        LPCTSTR    symType,
+        LPCTSTR    pdbName,
         ULONGLONG fileVersion)
     {
-        std::string buffer;
+        std::basic_string<TCHAR> buffer;
 
         if (fileVersion == 0)
-            buffer = fmt::format("{:s}:{:s} ({:p}), size: {:d} (result: {:d}), SymType: '{:s}', PDB: '{:s}'",
+            buffer = fmt::format(TEXT("{:s}:{:s} ({:p}), size: {:d} (result: {:d}), SymType: '{:s}', PDB: '{:s}'"),
                 img, mod, (LPVOID)baseAddr, size, result, symType, pdbName);
         else {
             DWORD v4 = (DWORD)(fileVersion & 0xFFFF);
             DWORD v3 = (DWORD)((fileVersion >> 16) & 0xFFFF);
             DWORD v2 = (DWORD)((fileVersion >> 32) & 0xFFFF);
             DWORD v1 = (DWORD)((fileVersion >> 48) & 0xFFFF);
-            buffer = fmt::format("{:s}:{:s} ({:p}), size: {:d} (result: {:d}), SymType: '{:s}', PDB: '{:s}', fileVersion: {:d}.{:d}.{:d}.{:d}",
+            buffer = fmt::format(TEXT("{:s}:{:s} ({:p}), size: {:d} (result: {:d}), SymType: '{:s}', PDB: '{:s}', fileVersion: {:d}.{:d}.{:d}.{:d}"),
                 img, mod, (LPVOID)baseAddr, size, result, symType, pdbName, v1, v2, v3, v4);
         }
 
         OnOutput(buffer.c_str());
     }
-    
+
     virtual void OnCallStackEntry(CallStackEntryType eType, CallStackEntry& entry)
     {
         if (eType != lastEntry && entry.offset != 0) {
-            std::string function = to_hex(entry.offset);
-            if (entry.undFullName[0] != '\0')
-                function = fmt::format("{:s} {:s}()", function, entry.undFullName);
-            else if (entry.undName[0] != '\0')
-                function = fmt::format("{:s} {:s}()", function, entry.undName);
-            else if (entry.name[0] != '\0')
-                function = fmt::format("{:s} {:s}()", function, entry.name);
-            std::string filename = "(filename not available)";
-            if (entry.lineFileName[0] != '\0')
-                filename = fmt::format("[File={:s}:{:d}]", entry.lineFileName, entry.lineNumber);
-            std::string moduleName = "(module-name not available)";
-            if (entry.moduleName[0] != '\0')
-                moduleName = fmt::format("[in {:s}]", entry.moduleName);
+            std::basic_string<TCHAR> function = fmt::format(TEXT("0x{:X}"), entry.offset);
+            if (entry.undFullName[0] != TEXT('\0'))
+                function = fmt::format(TEXT("{:s} {:s}()"), function, entry.undFullName);
+            else if (entry.undName[0] != TEXT('\0'))
+                function = fmt::format(TEXT("{:s} {:s}()"), function, entry.undName);
+            else if (entry.name[0] != TEXT('\0'))
+                function = fmt::format(TEXT("{:s} {:s}()"), function, entry.name);
+            std::basic_string<TCHAR> filename = TEXT("(filename not available)");
+            if (entry.lineFileName[0] != TEXT('\0'))
+                filename = fmt::format(TEXT("[File={:s}:{:d}]"), entry.lineFileName, entry.lineNumber);
+            std::basic_string<TCHAR> moduleName = TEXT("(module-name not available)");
+            if (entry.moduleName[0] != TEXT('\0'))
+                moduleName = fmt::format(TEXT("[in {:s}]"), entry.moduleName);
 
-            OnOutput(fmt::format("{:s} {:s} {:s}", function, filename, moduleName).c_str());
+            OnOutput(fmt::format(TEXT("{:s} {:s} {:s}"), function, filename, moduleName).c_str());
         }
     }
-    
-    virtual void OnOutput([[maybe_unused]] LPCSTR szText)
+
+    virtual void OnOutput([[maybe_unused]] LPCTSTR szText)
     {
-        _INFO_LOG(szText);
+        BM_DEBUG_INFO_LOG(to_string(szText));
     }
 
     HANDLE               m_hProcess;
     DWORD                m_dwProcessId;
     BOOL                 m_modulesLoaded;
-    LPSTR                m_szSymPath;
+    LPTSTR                m_szSymPath;
 
     int m_options;
     int m_MaxRecursionCount;
@@ -554,13 +599,13 @@ protected:
         SIZE_T st;
         BOOL   bRet = ReadProcessMemory(hProcess, (LPVOID)qwBaseAddress, lpBuffer, nSize, &st);
         *lpNumberOfBytesRead = (DWORD)st;
-        //__TRACE_LOG("ReadMemory: hProcess: {:p}, baseAddr: {:p}, buffer: {:p}, size: {:d}, read: {:d}, result: {:d}", hProcess, (LPVOID)qwBaseAddress, lpBuffer, nSize, (DWORD)st, (DWORD)bRet);
+        //__BM_TRACE_LOG("ReadMemory: hProcess: {:p}, baseAddr: {:p}, buffer: {:p}, size: {:d}, read: {:d}, result: {:d}", hProcess, (LPVOID)qwBaseAddress, lpBuffer, nSize, (DWORD)st, (DWORD)bRet);
 
         return bRet;
     }
 
 private:
-    static void MyStrCpy(char* szDest, size_t nMaxDestSize, const char* szSrc)
+    static void MyStrCpy(PTCHAR szDest, size_t nMaxDestSize, const TCHAR* szSrc)
     {
         if (nMaxDestSize <= 0)
             return;
@@ -570,13 +615,13 @@ private:
         szDest[nMaxDestSize - 1] = 0;
     }
 
-    BOOL Init(LPCSTR szSymPath)
+    BOOL Init(LPCTSTR szSymPath)
     {
         // SymInitialize
         if (szSymPath != NULL)
             szSymPath = _strdup(szSymPath);
         if (SymInitialize(m_hProcess, szSymPath, FALSE) == FALSE)
-            _ERROR_LOG("SymInitialize, GetLastError: {:X} (Address: {:p})", GetLastError(), (LPVOID)0);
+            BM_DEBUG_ERROR_LOG("SymInitialize, GetLastError: {:X} (Address: {:p})", GetLastError(), (LPVOID)0);
 
         DWORD symOptions = SymGetOptions();
         symOptions |= SYMOPT_LOAD_LINES;
@@ -584,12 +629,12 @@ private:
         //symOptions |= SYMOPT_NO_PROMPTS;
         symOptions = SymSetOptions(symOptions);
 
-        char buf[STACKWALK_MAX_NAMELEN] = { 0 };
+        TCHAR buf[STACKWALK_MAX_NAMELEN] = { 0 };
         if (SymGetSearchPath(m_hProcess, buf, STACKWALK_MAX_NAMELEN) == FALSE)
-            _ERROR_LOG("SymGetSearchPath, GetLastError: {:X} (Address: {:p})", GetLastError(), (LPVOID)0);
-        char  szUserName[1024] = { 0 };
+            BM_DEBUG_ERROR_LOG("SymGetSearchPath, GetLastError: {:X} (Address: {:p})", GetLastError(), (LPVOID)0);
+        TCHAR szUserName[1024] = { 0 };
         DWORD dwSize = 1024;
-        GetUserNameA(szUserName, &dwSize);
+        GetUserName(szUserName, &dwSize);
         OnSymInit(buf, symOptions, szUserName);
 
         return TRUE;
@@ -626,24 +671,24 @@ private:
         DWORD        cbNeeded;
         MODULEINFO   mi;
         HMODULE* hMods = NULL;
-        char* tt = NULL;
-        char* tt2 = NULL;
+        PTCHAR tt = NULL;
+        PTCHAR tt2 = NULL;
         const SIZE_T TTBUFLEN = 8096;
         int          cnt = 0;
 
         hMods = (HMODULE*)malloc(sizeof(HMODULE) * (TTBUFLEN / sizeof(HMODULE)));
-        tt = (char*)malloc(sizeof(char) * TTBUFLEN);
-        tt2 = (char*)malloc(sizeof(char) * TTBUFLEN);
+        tt = (PTCHAR)malloc(sizeof(TCHAR) * TTBUFLEN);
+        tt2 = (PTCHAR)malloc(sizeof(TCHAR) * TTBUFLEN);
         if ((hMods == NULL) || (tt == NULL) || (tt2 == NULL))
             goto cleanup;
 
         if (!EnumProcessModules(hProcess, hMods, TTBUFLEN, &cbNeeded)) {
-            _ERROR_LOG("EPM failed, GetLastError: {:X}", GetLastError());
+            BM_DEBUG_ERROR_LOG("EPM failed, GetLastError: {:X}", GetLastError());
             goto cleanup;
         }
 
         if (cbNeeded > TTBUFLEN) {
-            _ERROR_LOG("More than {} module handles.", TTBUFLEN);
+            BM_DEBUG_ERROR_LOG("More than {:d} module handles.", TTBUFLEN);
             goto cleanup;
         }
 
@@ -652,14 +697,14 @@ private:
             GetModuleInformation(hProcess, hMods[i], &mi, sizeof(mi));
             // image file name
             tt[0] = 0;
-            GetModuleFileNameExA(hProcess, hMods[i], tt, TTBUFLEN);
+            GetModuleFileNameEx(hProcess, hMods[i], tt, TTBUFLEN);
             // module name
             tt2[0] = 0;
-            GetModuleBaseNameA(hProcess, hMods[i], tt2, TTBUFLEN);
+            GetModuleBaseName(hProcess, hMods[i], tt2, TTBUFLEN);
 
             DWORD dwRes = LoadModule(hProcess, tt, tt2, (DWORD64)mi.lpBaseOfDll, mi.SizeOfImage);
             if (dwRes != ERROR_SUCCESS)
-                _ERROR_LOG("StackWalk64, GetLastError: {:X} (Address: {:p})", dwRes, (LPVOID)0);
+                BM_DEBUG_ERROR_LOG("StackWalk64, GetLastError: {:X} (Address: {:p})", dwRes, (LPVOID)0);
             cnt++;
         }
 
@@ -674,15 +719,15 @@ private:
         return cnt != 0;
     }
 
-    DWORD LoadModule(HANDLE hProcess, LPCSTR img, LPCSTR mod, DWORD64 baseAddr, DWORD size)
+    DWORD LoadModule(HANDLE hProcess, LPCTSTR img, LPCTSTR mod, DWORD64 baseAddr, DWORD size)
     {
-        CHAR* szImg = _strdup(img);
-        CHAR* szMod = _strdup(mod);
+        PTCHAR szImg = _strdup(img);
+        PTCHAR szMod = _strdup(mod);
         DWORD result = ERROR_SUCCESS;
         if ((szImg == NULL) || (szMod == NULL))
             result = ERROR_NOT_ENOUGH_MEMORY;
         else {
-            if (SymLoadModule64(hProcess, 0, szImg, szMod, baseAddr, size) == 0)
+            if (SymLoadModuleEx(hProcess, 0, szImg, szMod, baseAddr, size, NULL, NULL) == 0)
                 result = GetLastError();
         }
         ULONGLONG fileVersion = 0;
@@ -691,11 +736,11 @@ private:
             if ((m_options & RetrieveFileVersion) != 0) {
                 VS_FIXEDFILEINFO* fInfo = NULL;
                 DWORD             dwHandle;
-                DWORD             dwSize = GetFileVersionInfoSizeA(szImg, &dwHandle);
+                DWORD             dwSize = GetFileVersionInfoSize(szImg, &dwHandle);
                 if (dwSize > 0) {
                     LPVOID vData = malloc(dwSize);
                     if (vData != NULL) {
-                        if (GetFileVersionInfoA(szImg, dwHandle, dwSize, vData) != 0) {
+                        if (GetFileVersionInfo(szImg, dwHandle, dwSize, vData) != 0) {
                             UINT  len;
                             TCHAR szSubBlock[] = _T("\\");
                             if (VerQueryValue(vData, szSubBlock, (LPVOID*)&fInfo, &len) == 0)
@@ -712,39 +757,39 @@ private:
 
             // Retrieve some additional-infos about the module
             IMAGEHLP_MODULE64 Module;
-            const char* szSymType = "-unknown-";
+            const TCHAR* szSymType = TEXT("-unknown-");
             if (GetModuleInfo(hProcess, baseAddr, &Module) != FALSE) {
                 switch (Module.SymType) {
                     case SymNone:
-                        szSymType = "-nosymbols-";
+                        szSymType = TEXT("-nosymbols-");
                         break;
                     case SymCoff: // 1
-                        szSymType = "COFF";
+                        szSymType = TEXT("COFF");
                         break;
                     case SymCv: // 2
-                        szSymType = "CV";
+                        szSymType = TEXT("CV");
                         break;
                     case SymPdb: // 3
-                        szSymType = "PDB";
+                        szSymType = TEXT("PDB");
                         break;
                     case SymExport: // 4
-                        szSymType = "-exported-";
+                        szSymType = TEXT("-exported-");
                         break;
                     case SymDeferred: // 5
-                        szSymType = "-deferred-";
+                        szSymType = TEXT("-deferred-");
                         break;
                     case SymSym: // 6
-                        szSymType = "SYM";
+                        szSymType = TEXT("SYM");
                         break;
                     case 7: // SymDia:
-                        szSymType = "DIA";
+                        szSymType = TEXT("DIA");
                         break;
                     case 8: //SymVirtual:
-                        szSymType = "Virtual";
+                        szSymType = TEXT("Virtual");
                         break;
                 }
             }
-            LPCSTR pdbName = Module.LoadedImageName;
+            LPCTSTR pdbName = Module.LoadedImageName;
             if (Module.LoadedPdbName[0] != 0)
                 pdbName = Module.LoadedPdbName;
             OnLoadModule(img, mod, baseAddr, size, result, szSymType, pdbName,
@@ -796,7 +841,7 @@ private:
 class StackWalkerBM final : public StackWalker
 {
 public:
-    std::string DumpCallStack(EXCEPTION_POINTERS* pExceptionPointers = nullptr)
+    std::basic_string<TCHAR> DumpCallStack(EXCEPTION_POINTERS* pExceptionPointers = nullptr)
     {
         // Secret windows hacks.
         static_assert(sizeof std::exception_ptr == sizeof std::shared_ptr<const _EXCEPTION_RECORD>
@@ -806,7 +851,7 @@ public:
         if (pExceptionPointers == nullptr) {
             std::exception_ptr exceptionPtr = std::current_exception();
             if (!exceptionPtr) {
-                return "No callStack available";
+                return TEXT("No callStack available");
             }
             auto exceptionRecord = static_cast<const std::shared_ptr<_EXCEPTION_RECORD>*>(reinterpret_cast<void*>(&exceptionPtr));
             exceptionPointers.ExceptionRecord = exceptionRecord->get();
@@ -818,97 +863,96 @@ public:
 
         ShowCallStack(GetCurrentThread(), exceptionPointers.ContextRecord);
         const BOOL ret = WriteFullDump(GetMiniDumpFile().c_str(), &exceptionPointers);
-        _TRACE_LOG("WriteFullDump -> {}", ret == TRUE);
+        BM_DEBUG_TRACE_LOG("WriteFullDump -> {}", ret == TRUE);
 
         return callStack;
     }
 
-    std::string GetCallStack()
+    std::basic_string<TCHAR> GetCallStack()
     {
         return callStack;
     }
 
 private:
-    std::string GetFileVersion()
+    std::basic_string<TCHAR> GetFileVersion()
     {
-        const std::string defaultFileVersion = "0.0.0.0";
+        const std::basic_string<TCHAR> defaultFileVersion = TEXT("0.0.0.0");
 
-        CHAR dllPath[MAX_PATH];
-        if (GetModuleFileNameA((HINSTANCE)&__ImageBase, dllPath, _countof(dllPath)) == NULL) {
-            _ERROR_LOG("GetModuleFileNameA, GetLastError: {:X}", GetLastError());
+        TCHAR dllPath[MAX_PATH];
+        if (GetModuleFileName((HINSTANCE)&__ImageBase, dllPath, _countof(dllPath)) == NULL) {
+            BM_DEBUG_ERROR_LOG("GetModuleFileName, GetLastError: {:X}", GetLastError());
             return defaultFileVersion;
         }
 
-        DWORD fileVersionSize = GetFileVersionInfoSizeA(dllPath, NULL);
+        DWORD fileVersionSize = GetFileVersionInfoSize(dllPath, NULL);
         if (fileVersionSize == NULL) {
-            _ERROR_LOG("GetFileVersionInfoSizeA, GetLastError: {:X}", GetLastError());
+            BM_DEBUG_ERROR_LOG("GetFileVersionInfoSize, GetLastError: {:X}", GetLastError());
             return defaultFileVersion;
         }
 
         std::vector<BYTE> fileVersion(fileVersionSize);
-        if (GetFileVersionInfoA(dllPath, NULL, fileVersionSize, fileVersion.data()) == FALSE) {
-            _ERROR_LOG("GetFileVersionInfoA, GetLastError: {:X}", GetLastError());
+        if (GetFileVersionInfo(dllPath, NULL, fileVersionSize, fileVersion.data()) == FALSE) {
+            BM_DEBUG_ERROR_LOG("GetFileVersionInfo, GetLastError: {:X}", GetLastError());
             return defaultFileVersion;
         }
 
         VS_FIXEDFILEINFO* pFileInfo = NULL;
         UINT pLenFileInfo = 0;
-        if (!VerQueryValueA(fileVersion.data(), "\\", (LPVOID*)&pFileInfo, &pLenFileInfo)) {
-            _ERROR_LOG("VerQueryValueA, GetLastError: {:X}", GetLastError());
+        if (!VerQueryValue(fileVersion.data(), TEXT("\\"), (LPVOID*)&pFileInfo, &pLenFileInfo)) {
+            BM_DEBUG_ERROR_LOG("VerQueryValue, GetLastError: {:X}", GetLastError());
             return defaultFileVersion;
         }
 
-        return fmt::format("{}.{}.{}.{}",
+        return fmt::format(TEXT("{:d}.{:d}.{:d}.{:d}"),
             (pFileInfo->dwFileVersionMS >> 16) & 0xffff,
             (pFileInfo->dwFileVersionMS) & 0xffff,
             (pFileInfo->dwFileVersionLS >> 16) & 0xffff,
             (pFileInfo->dwFileVersionLS) & 0xffff);
     }
 
-    std::string GetMiniDumpFile()
+    std::basic_string<TCHAR> GetMiniDumpFile()
     {
-        char pluginName[512] = "Unknown";
+        TCHAR pluginName[512] = TEXT("Unknown");
         SetLastError(ERROR_SUCCESS);
-        GetModuleFileNameA((HINSTANCE)&__ImageBase, pluginName, sizeof pluginName);
+        GetModuleFileName((HINSTANCE)&__ImageBase, pluginName, sizeof pluginName);
         if (GetLastError()) {
-            _WARNING_LOG("GetModuleFileNameA, GetLastError: {:X}", GetLastError());
-            strcpy_s(pluginName, "Unknown");
+            BM_DEBUG_WARNING_LOG("GetModuleFileName, GetLastError: {:X}", GetLastError());
+            strcpy_s(pluginName, TEXT("Unknown"));
         }
         else {
-            char* filename = strrchr(pluginName, '\\') + 1;
-            strncpy_s(pluginName, filename, strrchr(pluginName, '.') - filename);
+            PTCHAR filename = strrchr(pluginName, TEXT('\\')) + 1;
+            strncpy_s(pluginName, filename, strrchr(pluginName, TEXT('.')) - filename);
         }
+        
 
-        char dllPath[MAX_PATH];
-        if (GetModuleFileNameA((HINSTANCE)&__ImageBase, dllPath, _countof(dllPath)) == NULL) {
-            _WARNING_LOG("GetModuleFileNameA, GetLastError: {:X}", GetLastError());
-            dllPath[0] = '\0';
-        }
+        std::basic_string<TCHAR> pluginVersion = GetFileVersion();
 
-        std::string pluginVersion = GetFileVersion();
-
-        std::string localTime = "0.0.0-0.0.0";
+        std::basic_string<TCHAR> localTime = TEXT("0.0.0-0.0.0");
         tm currentTimeInfo;
         const std::time_t currentTime = std::time(nullptr);
         if (!localtime_s(&currentTimeInfo, &currentTime)) {
-            localTime = fmt::format("{:%Y.%m.%d-%H.%M.%S}", currentTimeInfo);
+            localTime = fmt::format(TEXT("{:%Y.%m.%d-%H.%M.%S}"), currentTimeInfo);
         }
 
-        std::string fileName = fmt::format("{:s}-v{:s}-{:s}.dmp", pluginName, pluginVersion, localTime);
-        
+        std::basic_string<TCHAR> fileName = fmt::format(TEXT("{:s}-v{:s}-{:s}.dmp"), pluginName, pluginVersion, localTime);
+
+#ifdef UNICODE
+        return (BakkesModCrashesFolder / fileName).wstring();
+#else
         return (BakkesModCrashesFolder / fileName).string();
+#endif
     }
     
-    BOOL WriteFullDump(LPCSTR lpFileName, EXCEPTION_POINTERS* exceptionPointers)
+    BOOL WriteFullDump(LPCTSTR lpFileName, EXCEPTION_POINTERS* exceptionPointers)
     {
         if (exceptionPointers == nullptr) {
             return FALSE;
         }
 
-        _TRACE_LOG(lpFileName);
-        HANDLE hFile = CreateFileA(lpFileName, GENERIC_ALL, NULL, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+        BM_DEBUG_TRACE_LOG(to_string(lpFileName));
+        HANDLE hFile = CreateFile(lpFileName, GENERIC_ALL, NULL, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
         if (hFile == INVALID_HANDLE_VALUE) {
-            _ERROR_LOG("CreateFileA, GetLastError: {:X}", GetLastError());
+            BM_DEBUG_ERROR_LOG("CreateFile, GetLastError: {:X}", GetLastError());
             return FALSE;
         }
 
@@ -936,7 +980,7 @@ private:
         CloseHandle(hFile);
 
         if (!Result) {
-            _ERROR_LOG("MiniDumpWriteDump, GetLastError: {:X}", GetLastError());
+            BM_DEBUG_ERROR_LOG("MiniDumpWriteDump, GetLastError: {:X}", GetLastError());
             return FALSE;
         }
 
@@ -946,26 +990,37 @@ private:
     void OnCallStackEntry(const CallStackEntryType eType, CallStackEntry& entry) override
     {
         if (eType != lastEntry && entry.offset != 0) {
-            std::string function = to_hex(entry.offset);
-            if (entry.undFullName[0] != '\0')
-                function = fmt::format("{:s} {:s}()", function, entry.undFullName);
-            else if (entry.undName[0] != '\0')
-                function = fmt::format("{:s} {:s}()", function, entry.undName);
-            else if (entry.name[0] != '\0')
-                function = fmt::format("{:s} {:s}()", function, entry.name);
-            std::string filename = "(filename not available)";
-            if (entry.lineFileName[0] != '\0')
-                filename = fmt::format("[File={:s}:{:d}]", entry.lineFileName, entry.lineNumber);
-            std::string moduleName = "(module-name not available)";
-            if (entry.moduleName[0] != '\0')
+            std::basic_string<TCHAR> function = fmt::format(TEXT("0x{:X}"), entry.offset);
+            if (entry.undFullName[0] != TEXT('\0'))
+                function = fmt::format(TEXT("{:s} {:s}()"), function, entry.undFullName);
+            else if (entry.undName[0] != TEXT('\0'))
+                function = fmt::format(TEXT("{:s} {:s}()"), function, entry.undName);
+            else if (entry.name[0] != TEXT('\0'))
+                function = fmt::format(TEXT("{:s} {:s}()"), function, entry.name);
+            std::basic_string<TCHAR> filename = TEXT("(filename not available)");
+            if (entry.lineFileName[0] != TEXT('\0'))
+                filename = fmt::format(TEXT("[File={:s}:{:d}]"), entry.lineFileName, entry.lineNumber);
+            std::basic_string<TCHAR> moduleName = TEXT("(module-name not available)");
+            if (entry.moduleName[0] != TEXT('\0'))
                 //moduleName = fmt::format("[in {:s}]", entry.moduleName);
-                moduleName = fmt::format("[in {:s}]", entry.loadedImageName);
+                moduleName = fmt::format(TEXT("[in {:s}]"), entry.loadedImageName);
 
-            callStack += fmt::format("{:s} {:s} {:s}\n", function, filename, moduleName);
+            callStack += fmt::format(TEXT("{:s} {:s} {:s}\n"), function, filename, moduleName);
         }
     }
 
-    void OnOutput(LPCSTR) override {}
+    void OnOutput(LPCTSTR) override {}
 
-    std::string callStack;
+    std::basic_string<TCHAR> callStack;
 };
+
+#undef strcpy_s
+#undef strncpy_s
+#undef _strdup
+#undef strcat_s
+#undef strlen
+#undef strrchr
+
+#undef IMAGEHLP_SYMBOL64
+#undef PIMAGEHLP_SYMBOL64
+#undef SymGetSymFromAddr64

@@ -13,14 +13,26 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="Resource Files\ImGui">
-      <UniqueIdentifier>{18597224-b2ec-4033-901e-1ac0c4df7a77}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Resource Files\GameModes">
+    <Filter Include="GameModes">
       <UniqueIdentifier>{99c4a39a-24ec-488b-b1aa-7a4af0df294f}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Resource Files\SIMDJson">
+    <Filter Include="Modules">
+      <UniqueIdentifier>{fddcbd17-7c2c-4237-b38a-145c2936862e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External">
+      <UniqueIdentifier>{f2bc8813-2b8f-441c-b0f6-9a74ca560ba9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External\ImGui">
+      <UniqueIdentifier>{18597224-b2ec-4033-901e-1ac0c4df7a77}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External\SIMDJson">
       <UniqueIdentifier>{660cd77f-189d-4380-bb3a-ed560006e353}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Networking">
+      <UniqueIdentifier>{affac30f-0cca-428c-8bf7-f2f2df4dffa9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External Modules">
+      <UniqueIdentifier>{dc472eda-eece-4a76-b01a-f757bf1d82a9}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -28,88 +40,112 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="GameModes\Drainage.h">
-      <Filter>Resource Files\GameModes</Filter>
+      <Filter>GameModes</Filter>
     </ClInclude>
     <ClInclude Include="GameModes\CrazyRumble.h">
-      <Filter>Resource Files\GameModes</Filter>
+      <Filter>GameModes</Filter>
     </ClInclude>
     <ClInclude Include="GameModes\Zombies.h">
-      <Filter>Resource Files\GameModes</Filter>
+      <Filter>GameModes</Filter>
     </ClInclude>
     <ClInclude Include="GameModes\BoostSteal.h">
-      <Filter>Resource Files\GameModes</Filter>
-    </ClInclude>
-    <ClInclude Include="Networking\Networking.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\External\ImGui\imconfig.h">
-      <Filter>Resource Files\ImGui</Filter>
-    </ClInclude>
-    <ClInclude Include="..\External\ImGui\imgui.h">
-      <Filter>Resource Files\ImGui</Filter>
-    </ClInclude>
-    <ClInclude Include="..\External\ImGui\imgui_additions.h">
-      <Filter>Resource Files\ImGui</Filter>
-    </ClInclude>
-    <ClInclude Include="..\External\ImGui\imgui_internal.h">
-      <Filter>Resource Files\ImGui</Filter>
-    </ClInclude>
-    <ClInclude Include="..\External\ImGui\imgui_rangeslider.h">
-      <Filter>Resource Files\ImGui</Filter>
-    </ClInclude>
-    <ClInclude Include="..\External\ImGui\imgui_searchablecombo.h">
-      <Filter>Resource Files\ImGui</Filter>
-    </ClInclude>
-    <ClInclude Include="..\External\ImGui\imstb_rectpack.h">
-      <Filter>Resource Files\ImGui</Filter>
-    </ClInclude>
-    <ClInclude Include="..\External\ImGui\imstb_textedit.h">
-      <Filter>Resource Files\ImGui</Filter>
-    </ClInclude>
-    <ClInclude Include="..\External\ImGui\imstb_truetype.h">
-      <Filter>Resource Files\ImGui</Filter>
+      <Filter>GameModes</Filter>
     </ClInclude>
     <ClInclude Include="GameModes\KeepAway.h">
-      <Filter>Resource Files\GameModes</Filter>
+      <Filter>GameModes</Filter>
     </ClInclude>
     <ClInclude Include="GameModes\Tag.h">
-      <Filter>Resource Files\GameModes</Filter>
+      <Filter>GameModes</Filter>
     </ClInclude>
     <ClInclude Include="GameModes\Juggernaut.h">
-      <Filter>Resource Files\GameModes</Filter>
+      <Filter>GameModes</Filter>
     </ClInclude>
     <ClInclude Include="Version.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Resource.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="GameModes\BoostMod.h">
-      <Filter>Resource Files\GameModes</Filter>
-    </ClInclude>
-    <ClInclude Include="GameModes\RocketGameMode.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="GameModes\RumbleItems\RumbleItems.h">
-      <Filter>Header Files</Filter>
+      <Filter>GameModes</Filter>
     </ClInclude>
     <ClInclude Include="GameModes\BoostShare.h">
-      <Filter>Resource Files\GameModes</Filter>
+      <Filter>GameModes</Filter>
     </ClInclude>
-    <ClInclude Include="Config.h">
+    <ClInclude Include="RPConfig.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="GameModes\SacredGround.h">
-      <Filter>Resource Files\GameModes</Filter>
+      <Filter>GameModes</Filter>
     </ClInclude>
     <ClInclude Include="pch.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="GameModes\SmallCars.h">
-      <Filter>Resource Files\GameModes</Filter>
+      <Filter>GameModes</Filter>
+    </ClInclude>
+    <ClInclude Include="Modules\BallMods.h">
+      <Filter>Modules</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource.h">
+      <Filter>Resource Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GameModes\RumbleItems\RumbleItems.h">
+      <Filter>GameModes</Filter>
+    </ClInclude>
+    <ClInclude Include="Networking\Networking.h">
+      <Filter>Networking</Filter>
+    </ClInclude>
+    <ClInclude Include="Modules\PlayerMods.h">
+      <Filter>Modules</Filter>
+    </ClInclude>
+    <ClInclude Include="Modules\CarPhysicsMods.h">
+      <Filter>Modules</Filter>
+    </ClInclude>
+    <ClInclude Include="Modules\LocalMatchSettings.h">
+      <Filter>Modules</Filter>
+    </ClInclude>
+    <ClInclude Include="Modules\BotSettings.h">
+      <Filter>Modules</Filter>
+    </ClInclude>
+    <ClInclude Include="Modules\GameControls.h">
+      <Filter>Modules</Filter>
+    </ClInclude>
+    <ClInclude Include="Modules\RocketPluginModule.h">
+      <Filter>Modules</Filter>
+    </ClInclude>
+    <ClInclude Include="GameModes\RocketGameMode.h">
+      <Filter>GameModes</Filter>
+    </ClInclude>
+    <ClInclude Include="ExternalModules\ExternalModules.h">
+      <Filter>External Modules</Filter>
     </ClInclude>
     <ClInclude Include="..\External\simdjson\singleheader\simdjson.h">
-      <Filter>Resource Files\SIMDJson</Filter>
+      <Filter>External\SIMDJson</Filter>
+    </ClInclude>
+    <ClInclude Include="..\External\ImGui\imgui_additions.h">
+      <Filter>External\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\External\ImGui\imgui_internal.h">
+      <Filter>External\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\External\ImGui\imgui_rangeslider.h">
+      <Filter>External\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\External\ImGui\imgui_searchablecombo.h">
+      <Filter>External\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\External\ImGui\imstb_rectpack.h">
+      <Filter>External\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\External\ImGui\imstb_textedit.h">
+      <Filter>External\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\External\ImGui\imstb_truetype.h">
+      <Filter>External\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\External\ImGui\imconfig.h">
+      <Filter>External\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\External\ImGui\imgui.h">
+      <Filter>External\ImGui</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -120,82 +156,109 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="GameModes\Drainage.cpp">
-      <Filter>Resource Files\GameModes</Filter>
+      <Filter>GameModes</Filter>
     </ClCompile>
     <ClCompile Include="GameModes\CrazyRumble.cpp">
-      <Filter>Resource Files\GameModes</Filter>
+      <Filter>GameModes</Filter>
     </ClCompile>
     <ClCompile Include="GameModes\Zombies.cpp">
-      <Filter>Resource Files\GameModes</Filter>
+      <Filter>GameModes</Filter>
     </ClCompile>
     <ClCompile Include="GameModes\BoostSteal.cpp">
-      <Filter>Resource Files\GameModes</Filter>
-    </ClCompile>
-    <ClCompile Include="Networking\UPnPClient.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Networking\P2PHost.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Networking\Networking.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\External\ImGui\imgui.cpp">
-      <Filter>Resource Files\ImGui</Filter>
-    </ClCompile>
-    <ClCompile Include="..\External\ImGui\imgui_additions.cpp">
-      <Filter>Resource Files\ImGui</Filter>
-    </ClCompile>
-    <ClCompile Include="..\External\ImGui\imgui_demo.cpp">
-      <Filter>Resource Files\ImGui</Filter>
-    </ClCompile>
-    <ClCompile Include="..\External\ImGui\imgui_draw.cpp">
-      <Filter>Resource Files\ImGui</Filter>
-    </ClCompile>
-    <ClCompile Include="..\External\ImGui\imgui_rangeslider.cpp">
-      <Filter>Resource Files\ImGui</Filter>
-    </ClCompile>
-    <ClCompile Include="..\External\ImGui\imgui_searchablecombo.cpp">
-      <Filter>Resource Files\ImGui</Filter>
-    </ClCompile>
-    <ClCompile Include="..\External\ImGui\imgui_widgets.cpp">
-      <Filter>Resource Files\ImGui</Filter>
+      <Filter>GameModes</Filter>
     </ClCompile>
     <ClCompile Include="GameModes\KeepAway.cpp">
-      <Filter>Resource Files\GameModes</Filter>
+      <Filter>GameModes</Filter>
     </ClCompile>
     <ClCompile Include="GameModes\Tag.cpp">
-      <Filter>Resource Files\GameModes</Filter>
+      <Filter>GameModes</Filter>
     </ClCompile>
     <ClCompile Include="GameModes\Juggernaut.cpp">
-      <Filter>Resource Files\GameModes</Filter>
-    </ClCompile>
-    <ClCompile Include="ExternalFunctions.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>GameModes</Filter>
     </ClCompile>
     <ClCompile Include="GameModes\BoostMod.cpp">
-      <Filter>Resource Files\GameModes</Filter>
-    </ClCompile>
-    <ClCompile Include="GameModes\RumbleItems\RumbleItems.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>GameModes</Filter>
     </ClCompile>
     <ClCompile Include="GameModes\BoostShare.cpp">
-      <Filter>Resource Files\GameModes</Filter>
+      <Filter>GameModes</Filter>
     </ClCompile>
-    <ClCompile Include="Config.cpp">
+    <ClCompile Include="RPConfig.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="GameModes\SacredGround.cpp">
-      <Filter>Resource Files\GameModes</Filter>
+      <Filter>GameModes</Filter>
     </ClCompile>
     <ClCompile Include="pch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="GameModes\SmallCars.cpp">
-      <Filter>Resource Files\GameModes</Filter>
+      <Filter>GameModes</Filter>
+    </ClCompile>
+    <ClCompile Include="Modules\BallMods.cpp">
+      <Filter>Modules</Filter>
+    </ClCompile>
+    <ClCompile Include="GameModes\RumbleItems\RumbleItems.cpp">
+      <Filter>GameModes</Filter>
+    </ClCompile>
+    <ClCompile Include="Networking\Networking.cpp">
+      <Filter>Networking</Filter>
+    </ClCompile>
+    <ClCompile Include="Networking\P2PHost.cpp">
+      <Filter>Networking</Filter>
+    </ClCompile>
+    <ClCompile Include="Networking\UPnPClient.cpp">
+      <Filter>Networking</Filter>
+    </ClCompile>
+    <ClCompile Include="Modules\PlayerMods.cpp">
+      <Filter>Modules</Filter>
+    </ClCompile>
+    <ClCompile Include="Modules\CarPhysicsMods.cpp">
+      <Filter>Modules</Filter>
+    </ClCompile>
+    <ClCompile Include="Modules\BotSettings.cpp">
+      <Filter>Modules</Filter>
+    </ClCompile>
+    <ClCompile Include="Modules\GameControls.cpp">
+      <Filter>Modules</Filter>
+    </ClCompile>
+    <ClCompile Include="Modules\LocalMatchSettings.cpp">
+      <Filter>Modules</Filter>
+    </ClCompile>
+    <ClCompile Include="Modules\RocketPluginModule.cpp">
+      <Filter>Modules</Filter>
+    </ClCompile>
+    <ClCompile Include="ExternalModules\ExternalModules.cpp">
+      <Filter>External Modules</Filter>
     </ClCompile>
     <ClCompile Include="..\External\simdjson\singleheader\simdjson.cpp">
-      <Filter>Resource Files\SIMDJson</Filter>
+      <Filter>External\SIMDJson</Filter>
+    </ClCompile>
+    <ClCompile Include="..\External\ImGui\imgui_demo.cpp">
+      <Filter>External\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\External\ImGui\imgui_draw.cpp">
+      <Filter>External\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\External\ImGui\imgui_rangeslider.cpp">
+      <Filter>External\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\External\ImGui\imgui_searchablecombo.cpp">
+      <Filter>External\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\External\ImGui\imgui_widgets.cpp">
+      <Filter>External\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\External\ImGui\imgui.cpp">
+      <Filter>External\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\External\ImGui\imgui_additions.cpp">
+      <Filter>External\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="ExternalModules\ExternalFunctions.cpp">
+      <Filter>External Modules</Filter>
+    </ClCompile>
+    <ClCompile Include="ExternalModules\RPTests.cpp">
+      <Filter>External Modules</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

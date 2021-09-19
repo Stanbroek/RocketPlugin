@@ -1,6 +1,6 @@
 /// From https://docs.microsoft.com/en-us/cpp/cpp/exception-handling-differences?view=msvc-160#example---use-a-custom-translation-function
 #pragma once
-#include <eh.h>
+//#include <eh.h>
 #include <string>
 #include <Windows.h>
 
@@ -60,22 +60,21 @@ inline std::string GetExceptionMessage(const DWORD exceptionCode)
 
 class SE_Exception {
 public:
-	SE_Exception(const SE_Exception& e) : nSE(e.nSE), pExp(e.pExp) {}
-	SE_Exception(const unsigned int nSE_, EXCEPTION_POINTERS* pExp_) : nSE(nSE_), pExp(pExp_) {}
+	SE_Exception(const SE_Exception& e) = default;
+    SE_Exception(const unsigned int nSE_, EXCEPTION_POINTERS* pExp_) : nSE(nSE_), pExp(pExp_) {}
 	~SE_Exception() = default;
 
 	SE_Exception(SE_Exception&&) = default;
 	SE_Exception& operator=(const SE_Exception&) = default;
 	SE_Exception& operator=(SE_Exception&&) = default;
 
-	static void se_trans_func(unsigned int nSE, EXCEPTION_POINTERS* pEP) { throw SE_Exception(nSE, pEP); }
-	static _se_translator_function SetSETranslator() { return _set_se_translator(se_trans_func); }
+	[[ noreturn ]] static void se_trans_func(const unsigned int nSE, EXCEPTION_POINTERS* pEP) { throw SE_Exception(nSE, pEP); }
+	//static _se_translator_function SetSETranslator() { return _set_se_translator(se_trans_func); }
 	static std::string FormatSeMessage(const DWORD messageId)
 	{
 		char error[2048];
 		DWORD len = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_FROM_HMODULE,
-			LoadLibrary(TEXT("NTDLL.DLL")), static_cast<DWORD>(messageId),
-			NULL, error, sizeof error, NULL);
+			LoadLibrary(TEXT("NTDLL.DLL")), messageId, NULL, error, sizeof error, NULL);
 		if (len == 0) {
 			return "N/A (0x" + to_hex(messageId) + ")";
 		}
@@ -100,12 +99,12 @@ private:
 };
 
 
-class Scoped_SE_Translator
-{
-private:
-	const _se_translator_function old_SE_translator;
-public:
-	Scoped_SE_Translator() noexcept
-		: old_SE_translator{ SE_Exception::SetSETranslator() } {}
-	~Scoped_SE_Translator() noexcept { _set_se_translator(old_SE_translator); }
-};
+//class Scoped_SE_Translator
+//{
+//public:
+//	Scoped_SE_Translator() noexcept : old_SE_translator{ SE_Exception::SetSETranslator() } {}
+//	~Scoped_SE_Translator() noexcept { _set_se_translator(old_SE_translator); }
+//
+//private:
+//	_se_translator_function old_SE_translator;
+//};

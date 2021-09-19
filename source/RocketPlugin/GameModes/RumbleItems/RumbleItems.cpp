@@ -2,7 +2,7 @@
 // Rumble items wrappers for the RocketPlugin plugin.
 //
 // Author:       Stanbroek
-// Version:      0.6.5 05/02/21
+// Version:      0.6.6 15/08/21
 
 #include "RumbleItems.h"
 
@@ -16,23 +16,24 @@ bool RumbleWrapper::Render()
 }
 
 
-void RumbleWrapper::Reset(const RumbleWrapper def)
+void RumbleWrapper::Reset()
 {
     const bool wasEnabled = Enabled;
-    *this = def;
+    *this = RumbleWrapper(Archetype);
     Enabled = wasEnabled;
 }
 
 
-void RumbleWrapper::Update(RumblePickupComponentWrapper item) const
+void RumbleWrapper::Update(const std::uintptr_t item) const
 {
-    item.SetActivationDuration(ActivationDuration);
+    RumblePickupComponentWrapper rumbleItem = item;
+    rumbleItem.SetActivationDuration(ActivationDuration);
 }
 
 
-void RumbleWrapper::Multiply(const RumbleWrapper def, const float, const float, const float durationMultiplier)
+void RumbleWrapper::Multiply(const float, const float, const float durationMultiplier)
 {
-    ActivationDuration = def.ActivationDuration * durationMultiplier;
+    ActivationDuration = Archetype->ActivationDuration * durationMultiplier;
 }
 
 
@@ -49,29 +50,32 @@ bool TargetedWrapper::Render()
 }
 
 
-void TargetedWrapper::Reset(const TargetedWrapper def)
+void TargetedWrapper::Reset()
 {
     const bool wasEnabled = Enabled;
-    *this = def;
+    *this = TargetedWrapper(dynamic_cast<const TargetedWrapper*>(Archetype));
     Enabled = wasEnabled;
 }
 
 
-void TargetedWrapper::Update(TargetedPickup item) const
+void TargetedWrapper::Update(const std::uintptr_t item) const
 {
-    Super::Update(static_cast<RumblePickupComponentWrapper>(item));
-    item.SetbCanTargetBall(CanTargetBall);
-    item.SetbCanTargetCars(CanTargetCars);
-    item.SetbCanTargetEnemyCars(CanTargetEnemyCars);
-    item.SetbCanTargetTeamCars(CanTargetTeamCars);
-    item.SetRange(Range);
+    Super::Update(item);
+    TargetedPickup rumbleItem = item;
+    rumbleItem.SetbCanTargetBall(CanTargetBall);
+    rumbleItem.SetbCanTargetCars(CanTargetCars);
+    rumbleItem.SetbCanTargetEnemyCars(CanTargetEnemyCars);
+    rumbleItem.SetbCanTargetTeamCars(CanTargetTeamCars);
+    rumbleItem.SetRange(Range);
 }
 
 
-void TargetedWrapper::Multiply(const TargetedWrapper def, const float forceMultiplier, const float rangeMultiplier, const float durationMultiplier)
+void TargetedWrapper::Multiply(const float forceMultiplier, const float rangeMultiplier,
+    const float durationMultiplier)
 {
-    Super::Multiply(static_cast<RumbleWrapper>(def), forceMultiplier, rangeMultiplier, durationMultiplier);
-    Range = def.Range * rangeMultiplier;
+    Super::Multiply(forceMultiplier, rangeMultiplier, durationMultiplier);
+    const TargetedWrapper* arch = dynamic_cast<const TargetedWrapper*>(Archetype);
+    Range = arch->Range * rangeMultiplier;
 }
 
 
@@ -92,41 +96,44 @@ bool SpringWrapper::Render()
 }
 
 
-void SpringWrapper::Reset(const SpringWrapper def)
+void SpringWrapper::Reset()
 {
     const bool wasEnabled = Enabled;
-    *this = def;
+    *this = SpringWrapper(dynamic_cast<const SpringWrapper*>(Archetype));
     Enabled = wasEnabled;
 }
 
 
-void SpringWrapper::Update(SpringPickup item) const
+void SpringWrapper::Update(const std::uintptr_t item) const
 {
-    Super::Update(static_cast<TargetedPickup>(item));
-    item.SetForce(Force);
-    item.SetVerticalForce(VerticalForce);
-    item.SetTorque(Torque);
-    item.SetRelativeForceNormalDirection(RelativeForceNormalDirection);
-    item.SetMaxSpringLength(MaxSpringLength);
-    item.SetConstantForce(ConstantForce);
-    item.SetMinSpringLength(MinSpringLength);
-    item.SetWeldedForceScalar(WeldedForceScalar);
-    item.SetWeldedVerticalForce(WeldedVerticalForce);
+    Super::Update(item);
+    SpringPickup rumbleItem = item;
+    rumbleItem.SetForce(Force);
+    rumbleItem.SetVerticalForce(VerticalForce);
+    rumbleItem.SetTorque(Torque);
+    rumbleItem.SetRelativeForceNormalDirection(RelativeForceNormalDirection);
+    rumbleItem.SetMaxSpringLength(MaxSpringLength);
+    rumbleItem.SetConstantForce(ConstantForce);
+    rumbleItem.SetMinSpringLength(MinSpringLength);
+    rumbleItem.SetWeldedForceScalar(WeldedForceScalar);
+    rumbleItem.SetWeldedVerticalForce(WeldedVerticalForce);
 }
 
 
-void SpringWrapper::Multiply(const SpringWrapper def, const float forceMultiplier, const float rangeMultiplier, const float durationMultiplier)
+void SpringWrapper::Multiply(const float forceMultiplier, const float rangeMultiplier,
+    const float durationMultiplier)
 {
-    Super::Multiply(static_cast<TargetedWrapper>(def), forceMultiplier, rangeMultiplier, durationMultiplier);
-    Force = def.Force * forceMultiplier;
-    VerticalForce = def.VerticalForce * forceMultiplier;
-    Torque = def.Torque * forceMultiplier;
-    RelativeForceNormalDirection = def.RelativeForceNormalDirection * forceMultiplier;
-    MaxSpringLength = def.MaxSpringLength * rangeMultiplier;
-    ConstantForce = def.ConstantForce * forceMultiplier;
-    MinSpringLength = def.MinSpringLength * rangeMultiplier;
-    WeldedForceScalar = def.WeldedForceScalar * forceMultiplier;
-    WeldedVerticalForce = def.WeldedVerticalForce * forceMultiplier;
+    Super::Multiply(forceMultiplier, rangeMultiplier, durationMultiplier);
+    const SpringWrapper* arch = dynamic_cast<const SpringWrapper*>(Archetype);
+    Force = arch->Force * forceMultiplier;
+    VerticalForce = arch->VerticalForce * forceMultiplier;
+    Torque = arch->Torque * forceMultiplier;
+    RelativeForceNormalDirection = arch->RelativeForceNormalDirection * forceMultiplier;
+    MaxSpringLength = arch->MaxSpringLength * rangeMultiplier;
+    ConstantForce = arch->ConstantForce * forceMultiplier;
+    MinSpringLength = arch->MinSpringLength * rangeMultiplier;
+    WeldedForceScalar = arch->WeldedForceScalar * forceMultiplier;
+    WeldedVerticalForce = arch->WeldedVerticalForce * forceMultiplier;
 }
 
 
@@ -136,23 +143,24 @@ bool BallCarSpringWrapper::Render()
 }
 
 
-void BallCarSpringWrapper::Reset(const BallCarSpringWrapper def)
+void BallCarSpringWrapper::Reset()
 {
     const bool wasEnabled = Enabled;
-    *this = def;
+    *this = BallCarSpringWrapper(dynamic_cast<const BallCarSpringWrapper*>(Archetype));
     Enabled = wasEnabled;
 }
 
 
-void BallCarSpringWrapper::Update(BallCarSpringPickup item) const
+void BallCarSpringWrapper::Update(const std::uintptr_t item) const
 {
-    Super::Update(static_cast<SpringPickup>(item));
+    Super::Update(item);
 }
 
 
-void BallCarSpringWrapper::Multiply(const BallCarSpringWrapper def, const float forceMultiplier, const float rangeMultiplier, const float durationMultiplier)
+void BallCarSpringWrapper::Multiply(const float forceMultiplier, const float rangeMultiplier,
+    const float durationMultiplier)
 {
-    Super::Multiply(static_cast<SpringWrapper>(def), forceMultiplier, rangeMultiplier, durationMultiplier);
+    Super::Multiply(forceMultiplier, rangeMultiplier, durationMultiplier);
 }
 
 
@@ -162,23 +170,24 @@ bool BoostOverrideWrapper::Render()
 }
 
 
-void BoostOverrideWrapper::Reset(const BoostOverrideWrapper def)
+void BoostOverrideWrapper::Reset()
 {
     const bool wasEnabled = Enabled;
-    *this = def;
+    *this = BoostOverrideWrapper(dynamic_cast<const BoostOverrideWrapper*>(Archetype));
     Enabled = wasEnabled;
 }
 
 
-void BoostOverrideWrapper::Update(BoostOverridePickup item) const
+void BoostOverrideWrapper::Update(const std::uintptr_t item) const
 {
-    Super::Update(static_cast<TargetedPickup>(item));
+    Super::Update(item);
 }
 
 
-void BoostOverrideWrapper::Multiply(const BoostOverrideWrapper def, const float forceMultiplier, const float rangeMultiplier, const float durationMultiplier)
+void BoostOverrideWrapper::Multiply(const float forceMultiplier, const float rangeMultiplier,
+    const float durationMultiplier)
 {
-    Super::Multiply(static_cast<TargetedWrapper>(def), forceMultiplier, rangeMultiplier, durationMultiplier);
+    Super::Multiply(forceMultiplier, rangeMultiplier, durationMultiplier);
 }
 
 
@@ -193,28 +202,31 @@ bool BallFreezeWrapper::Render()
 }
 
 
-void BallFreezeWrapper::Reset(const BallFreezeWrapper def)
+void BallFreezeWrapper::Reset()
 {
     const bool wasEnabled = Enabled;
-    *this = def;
+    *this = BallFreezeWrapper(dynamic_cast<const BallFreezeWrapper*>(Archetype));
     Enabled = wasEnabled;
 }
 
 
-void BallFreezeWrapper::Update(BallFreezePickup item) const
+void BallFreezeWrapper::Update(const std::uintptr_t item) const
 {
-    Super::Update(static_cast<TargetedPickup>(item));
-    item.SetbMaintainMomentum(MaintainMomentum);
-    item.SetTimeToStop(TimeToStop);
-    item.SetStopMomentumPercentage(StopMomentumPercentage);
+    Super::Update(item);
+    BallFreezePickup rumbleItem = item;
+    rumbleItem.SetbMaintainMomentum(MaintainMomentum);
+    rumbleItem.SetTimeToStop(TimeToStop);
+    rumbleItem.SetStopMomentumPercentage(StopMomentumPercentage);
 }
 
 
-void BallFreezeWrapper::Multiply(const BallFreezeWrapper def, const float forceMultiplier, const float rangeMultiplier, const float durationMultiplier)
+void BallFreezeWrapper::Multiply(const float forceMultiplier, const float rangeMultiplier,
+    const float durationMultiplier)
 {
-    Super::Multiply(static_cast<TargetedWrapper>(def), forceMultiplier, rangeMultiplier, durationMultiplier);
-    TimeToStop = def.TimeToStop * durationMultiplier;
-    StopMomentumPercentage = def.StopMomentumPercentage * durationMultiplier;
+    Super::Multiply(forceMultiplier, rangeMultiplier, durationMultiplier);
+    const BallFreezeWrapper* arch = dynamic_cast<const BallFreezeWrapper*>(Archetype);
+    TimeToStop = arch->TimeToStop * durationMultiplier;
+    StopMomentumPercentage = arch->StopMomentumPercentage * durationMultiplier;
 }
 
 
@@ -230,31 +242,34 @@ bool GrapplingHookWrapper::Render()
 }
 
 
-void GrapplingHookWrapper::Reset(const GrapplingHookWrapper def)
+void GrapplingHookWrapper::Reset()
 {
     const bool wasEnabled = Enabled;
-    *this = def;
+    *this = GrapplingHookWrapper(dynamic_cast<const GrapplingHookWrapper*>(Archetype));
     Enabled = wasEnabled;
 }
 
 
-void GrapplingHookWrapper::Update(GrapplingHookPickup item) const
+void GrapplingHookWrapper::Update(const std::uintptr_t item) const
 {
-    Super::Update(static_cast<TargetedPickup>(item));
-    item.SetImpulse(Impulse);
-    item.SetForce(Force);
-    item.SetMaxRopeLength(MaxRopeLength);
-    item.SetPredictionSpeed(PredictionSpeed);
+    Super::Update(item);
+    GrapplingHookPickup rumbleItem = item;
+    rumbleItem.SetImpulse(Impulse);
+    rumbleItem.SetForce(Force);
+    rumbleItem.SetMaxRopeLength(MaxRopeLength);
+    rumbleItem.SetPredictionSpeed(PredictionSpeed);
 }
 
 
-void GrapplingHookWrapper::Multiply(const GrapplingHookWrapper def, const float forceMultiplier, const float rangeMultiplier, const float durationMultiplier)
+void GrapplingHookWrapper::Multiply(const float forceMultiplier, const float rangeMultiplier,
+    const float durationMultiplier)
 {
-    Super::Multiply(static_cast<TargetedWrapper>(def), forceMultiplier, rangeMultiplier, durationMultiplier);
-    Impulse = def.Impulse * forceMultiplier;
-    Force = def.Force * forceMultiplier;
-    MaxRopeLength = def.MaxRopeLength * rangeMultiplier;
-    PredictionSpeed = def.PredictionSpeed * durationMultiplier;
+    Super::Multiply(forceMultiplier, rangeMultiplier, durationMultiplier);
+    const GrapplingHookWrapper* arch = dynamic_cast<const GrapplingHookWrapper*>(Archetype);
+    Impulse = arch->Impulse * forceMultiplier;
+    Force = arch->Force * forceMultiplier;
+    MaxRopeLength = arch->MaxRopeLength * rangeMultiplier;
+    PredictionSpeed = arch->PredictionSpeed * durationMultiplier;
 }
 
 
@@ -269,28 +284,31 @@ bool GravityWrapper::Render()
 }
 
 
-void GravityWrapper::Reset(const GravityWrapper def)
+void GravityWrapper::Reset()
 {
     const bool wasEnabled = Enabled;
-    *this = def;
+    *this = GravityWrapper(dynamic_cast<const GravityWrapper*>(Archetype));
     Enabled = wasEnabled;
 }
 
 
-void GravityWrapper::Update(GravityPickup item) const
+void GravityWrapper::Update(const std::uintptr_t item) const
 {
-    Super::Update(static_cast<RumblePickupComponentWrapper>(item));
-    item.SetBallGravity(BallGravity);
-    item.SetRange(Range);
-    item.SetbDeactivateOnTouch(DeactivateOnTouch);
+    Super::Update(item);
+    GravityPickup rumbleItem = item;
+    rumbleItem.SetBallGravity(BallGravity);
+    rumbleItem.SetRange(Range);
+    rumbleItem.SetbDeactivateOnTouch(DeactivateOnTouch);
 }
 
 
-void GravityWrapper::Multiply(const GravityWrapper def, const float forceMultiplier, const float rangeMultiplier, const float durationMultiplier)
+void GravityWrapper::Multiply(const float forceMultiplier, const float rangeMultiplier,
+    const float durationMultiplier)
 {
-    Super::Multiply(static_cast<RumbleWrapper>(def), forceMultiplier, rangeMultiplier, durationMultiplier);
-    //BallGravity = def.BallGravity * forceMultiplier;
-    Range = def.Range * rangeMultiplier;
+    Super::Multiply(forceMultiplier, rangeMultiplier, durationMultiplier);
+    const GravityWrapper* arch = dynamic_cast<const GravityWrapper*>(Archetype);
+    //BallGravity = arch->BallGravity * forceMultiplier;
+    Range = arch->Range * rangeMultiplier;
 }
 
 
@@ -300,23 +318,24 @@ bool BallLassoWrapper::Render()
 }
 
 
-void BallLassoWrapper::Reset(const BallLassoWrapper def)
+void BallLassoWrapper::Reset()
 {
     const bool wasEnabled = Enabled;
-    *this = def;
+    *this = BallLassoWrapper(dynamic_cast<const BallLassoWrapper*>(Archetype));
     Enabled = wasEnabled;
 }
 
 
-void BallLassoWrapper::Update(BallLassoPickup item) const
+void BallLassoWrapper::Update(const std::uintptr_t item) const
 {
-    Super::Update(static_cast<SpringPickup>(item));
+    Super::Update(item);
 }
 
 
-void BallLassoWrapper::Multiply(const BallLassoWrapper def, const float forceMultiplier, const float rangeMultiplier, const float durationMultiplier)
+void BallLassoWrapper::Multiply(const float forceMultiplier, const float rangeMultiplier,
+    const float durationMultiplier)
 {
-    Super::Multiply(static_cast<SpringWrapper>(def), forceMultiplier, rangeMultiplier, durationMultiplier);
+    Super::Multiply(forceMultiplier, rangeMultiplier, durationMultiplier);
 }
 
 
@@ -329,25 +348,28 @@ bool BattarangWrapper::Render()
 }
 
 
-void BattarangWrapper::Reset(const BattarangWrapper def)
+void BattarangWrapper::Reset()
 {
     const bool wasEnabled = Enabled;
-    *this = def;
+    *this = BattarangWrapper(dynamic_cast<const BattarangWrapper*>(Archetype));
     Enabled = wasEnabled;
 }
 
 
-void BattarangWrapper::Update(BattarangPickup item) const
+void BattarangWrapper::Update(const std::uintptr_t item) const
 {
-    Super::Update(static_cast<BallLassoPickup>(item));
-    item.SetSpinSpeed(SpinSpeed);
+    Super::Update(item);
+    BattarangPickup rumbleItem = item;
+    rumbleItem.SetSpinSpeed(SpinSpeed);
 }
 
 
-void BattarangWrapper::Multiply(const BattarangWrapper def, const float forceMultiplier, const float rangeMultiplier, const float durationMultiplier)
+void BattarangWrapper::Multiply(const float forceMultiplier, const float rangeMultiplier,
+    const float durationMultiplier)
 {
-    Super::Multiply(static_cast<BallLassoWrapper>(def), forceMultiplier, rangeMultiplier, durationMultiplier);
-    SpinSpeed = def.SpinSpeed * forceMultiplier;
+    Super::Multiply(forceMultiplier, rangeMultiplier, durationMultiplier);
+    const BattarangWrapper* arch = dynamic_cast<const BattarangWrapper*>(Archetype);
+    SpinSpeed = arch->SpinSpeed * forceMultiplier;
 }
 
 
@@ -364,30 +386,33 @@ bool HitForceWrapper::Render()
 }
 
 
-void HitForceWrapper::Reset(const HitForceWrapper def)
+void HitForceWrapper::Reset()
 {
     const bool wasEnabled = Enabled;
-    *this = def;
+    *this = HitForceWrapper(dynamic_cast<const HitForceWrapper*>(Archetype));
     Enabled = wasEnabled;
 }
 
 
-void HitForceWrapper::Update(HitForcePickup item) const
+void HitForceWrapper::Update(const std::uintptr_t item) const
 {
-    Super::Update(static_cast<RumblePickupComponentWrapper>(item));
-    item.SetbBallForce(BallForce);
-    item.SetbCarForce(CarForce);
-    item.SetbDemolishCars(DemolishCars);
-    item.SetBallHitForce(BallHitForce);
-    item.SetCarHitForce(CarHitForce);
+    Super::Update(item);
+    HitForcePickup rumbleItem = item;
+    rumbleItem.SetbBallForce(BallForce);
+    rumbleItem.SetbCarForce(CarForce);
+    rumbleItem.SetbDemolishCars(DemolishCars);
+    rumbleItem.SetBallHitForce(BallHitForce);
+    rumbleItem.SetCarHitForce(CarHitForce);
 }
 
 
-void HitForceWrapper::Multiply(const HitForceWrapper def, const float forceMultiplier, const float rangeMultiplier, const float durationMultiplier)
+void HitForceWrapper::Multiply(const float forceMultiplier, const float rangeMultiplier,
+    const float durationMultiplier)
 {
-    Super::Multiply(static_cast<RumbleWrapper>(def), forceMultiplier, rangeMultiplier, durationMultiplier);
-    BallHitForce = def.BallHitForce * forceMultiplier;
-    CarHitForce = def.CarHitForce * forceMultiplier;
+    Super::Multiply(forceMultiplier, rangeMultiplier, durationMultiplier);
+    const HitForceWrapper* arch = dynamic_cast<const HitForceWrapper*>(Archetype);
+    BallHitForce = arch->BallHitForce * forceMultiplier;
+    CarHitForce = arch->CarHitForce * forceMultiplier;
 }
 
 
@@ -405,35 +430,38 @@ bool VelcroWrapper::Render()
 }
 
 
-void VelcroWrapper::Reset(const VelcroWrapper def)
+void VelcroWrapper::Reset()
 {
     const bool wasEnabled = Enabled;
-    *this = def;
+    *this = VelcroWrapper(dynamic_cast<const VelcroWrapper*>(Archetype));
     Enabled = wasEnabled;
 }
 
 
-void VelcroWrapper::Update(VelcroPickup item) const
+void VelcroWrapper::Update(const std::uintptr_t item) const
 {
-    Super::Update(static_cast<RumblePickupComponentWrapper>(item));
-    item.SetAfterHitDuration(AfterHitDuration);
-    item.SetPostBreakDuration(PostBreakDuration);
-    item.SetMinBreakForce(MinBreakForce);
-    item.SetMinBreakTime(MinBreakTime);
-    item.SetAttachTime(AttachTime);
-    item.SetBreakTime(BreakTime);
+    Super::Update(item);
+    VelcroPickup rumbleItem = item;
+    rumbleItem.SetAfterHitDuration(AfterHitDuration);
+    rumbleItem.SetPostBreakDuration(PostBreakDuration);
+    rumbleItem.SetMinBreakForce(MinBreakForce);
+    rumbleItem.SetMinBreakTime(MinBreakTime);
+    rumbleItem.SetAttachTime(AttachTime);
+    rumbleItem.SetBreakTime(BreakTime);
 }
 
 
-void VelcroWrapper::Multiply(const VelcroWrapper def, const float forceMultiplier, const float rangeMultiplier, const float durationMultiplier)
+void VelcroWrapper::Multiply(const float forceMultiplier, const float rangeMultiplier,
+    const float durationMultiplier)
 {
-    Super::Multiply(static_cast<RumbleWrapper>(def), forceMultiplier, rangeMultiplier, durationMultiplier);
-    AfterHitDuration = def.AfterHitDuration * durationMultiplier;
-    PostBreakDuration = def.PostBreakDuration * durationMultiplier;
-    MinBreakForce = def.MinBreakForce * forceMultiplier;
-    MinBreakTime = def.MinBreakTime * durationMultiplier;
-    AttachTime = def.AttachTime * durationMultiplier;
-    BreakTime = def.BreakTime * durationMultiplier;
+    Super::Multiply(forceMultiplier, rangeMultiplier, durationMultiplier);
+    const VelcroWrapper* arch = dynamic_cast<const VelcroWrapper*>(Archetype);
+    AfterHitDuration = arch->AfterHitDuration * durationMultiplier;
+    PostBreakDuration = arch->PostBreakDuration * durationMultiplier;
+    MinBreakForce = arch->MinBreakForce * forceMultiplier;
+    MinBreakTime = arch->MinBreakTime * durationMultiplier;
+    AttachTime = arch->AttachTime * durationMultiplier;
+    BreakTime = arch->BreakTime * durationMultiplier;
 }
 
 
@@ -443,23 +471,24 @@ bool SwapperWrapper::Render()
 }
 
 
-void SwapperWrapper::Reset(const SwapperWrapper def)
+void SwapperWrapper::Reset()
 {
     const bool wasEnabled = Enabled;
-    *this = def;
+    *this = SwapperWrapper(dynamic_cast<const SwapperWrapper*>(Archetype));
     Enabled = wasEnabled;
 }
 
 
-void SwapperWrapper::Update(SwapperPickup item) const
+void SwapperWrapper::Update(const std::uintptr_t item) const
 {
-    Super::Update(static_cast<TargetedPickup>(item));
+    Super::Update(item);
 }
 
 
-void SwapperWrapper::Multiply(const SwapperWrapper def, const float forceMultiplier, const float rangeMultiplier, const float durationMultiplier)
+void SwapperWrapper::Multiply(const float forceMultiplier, const float rangeMultiplier,
+    const float durationMultiplier)
 {
-    Super::Multiply(static_cast<TargetedWrapper>(def), forceMultiplier, rangeMultiplier, durationMultiplier);
+    Super::Multiply(forceMultiplier, rangeMultiplier, durationMultiplier);
 }
 
 
@@ -480,41 +509,44 @@ bool TornadoWrapper::Render()
 }
 
 
-void TornadoWrapper::Reset(const TornadoWrapper def)
+void TornadoWrapper::Reset()
 {
     const bool wasEnabled = Enabled;
-    *this = def;
+    *this = TornadoWrapper(dynamic_cast<const TornadoWrapper*>(Archetype));
     Enabled = wasEnabled;
 }
 
 
-void TornadoWrapper::Update(TornadoPickup item) const
+void TornadoWrapper::Update(const std::uintptr_t item) const
 {
-    Super::Update(static_cast<RumblePickupComponentWrapper>(item));
-    item.SetHeight(Height);
-    item.SetRadius(Radius);
-    item.SetRotationalForce(RotationalForce);
-    item.SetTorque(Torque);
-    item.SetFXScale(FxScale);
-    item.SetMeshScale(MeshScale);
-    item.SetMaxVelocityOffset(MaxVelocityOffset);
-    item.SetBallMultiplier(BallMultiplier);
-    item.SetVelocityEase(VelocityEase);
+    Super::Update(item);
+    TornadoPickup rumbleItem = item;
+    rumbleItem.SetHeight(Height);
+    rumbleItem.SetRadius(Radius);
+    rumbleItem.SetRotationalForce(RotationalForce);
+    rumbleItem.SetTorque(Torque);
+    rumbleItem.SetFXScale(FxScale);
+    rumbleItem.SetMeshScale(MeshScale);
+    rumbleItem.SetMaxVelocityOffset(MaxVelocityOffset);
+    rumbleItem.SetBallMultiplier(BallMultiplier);
+    rumbleItem.SetVelocityEase(VelocityEase);
 }
 
 
-void TornadoWrapper::Multiply(const TornadoWrapper def, const float forceMultiplier, const float rangeMultiplier, const float durationMultiplier)
+void TornadoWrapper::Multiply(const float forceMultiplier, const float rangeMultiplier,
+    const float durationMultiplier)
 {
-    Super::Multiply(static_cast<RumbleWrapper>(def), forceMultiplier, rangeMultiplier, durationMultiplier);
-    Height = def.Height * rangeMultiplier;
-    Radius = def.Radius * rangeMultiplier;
-    RotationalForce = def.RotationalForce * forceMultiplier;
-    Torque = def.Torque * forceMultiplier;
-    FxScale = def.FxScale * rangeMultiplier;
-    MeshScale = def.MeshScale * rangeMultiplier;
-    MaxVelocityOffset = def.MaxVelocityOffset * forceMultiplier;
-    BallMultiplier = def.BallMultiplier * forceMultiplier;
-    VelocityEase = def.VelocityEase * forceMultiplier;
+    Super::Multiply(forceMultiplier, rangeMultiplier, durationMultiplier);
+    const TornadoWrapper* arch = dynamic_cast<const TornadoWrapper*>(Archetype);
+    Height = arch->Height * rangeMultiplier;
+    Radius = arch->Radius * rangeMultiplier;
+    RotationalForce = arch->RotationalForce * forceMultiplier;
+    Torque = arch->Torque * forceMultiplier;
+    FxScale = arch->FxScale * rangeMultiplier;
+    MeshScale = arch->MeshScale * rangeMultiplier;
+    MaxVelocityOffset = arch->MaxVelocityOffset * forceMultiplier;
+    BallMultiplier = arch->BallMultiplier * forceMultiplier;
+    VelocityEase = arch->VelocityEase * forceMultiplier;
 }
 
 
@@ -524,17 +556,18 @@ bool HauntedWrapper::Render()
 }
 
 
-void HauntedWrapper::Reset(const HauntedWrapper def)
+void HauntedWrapper::Reset()
 {
     const bool wasEnabled = Enabled;
-    *this = def;
+    *this = HauntedWrapper(dynamic_cast<const HauntedWrapper*>(Archetype));
     Enabled = wasEnabled;
 }
 
 
-void HauntedWrapper::Multiply(const HauntedWrapper def, const float forceMultiplier, const float rangeMultiplier, const float durationMultiplier)
+void HauntedWrapper::Multiply(const float forceMultiplier, const float rangeMultiplier,
+    const float durationMultiplier)
 {
-    Super::Multiply(static_cast<GravityWrapper>(def), forceMultiplier, rangeMultiplier, durationMultiplier);
+    Super::Multiply(forceMultiplier, rangeMultiplier, durationMultiplier);
 }
 
 
@@ -544,15 +577,16 @@ bool RugbyWrapper::Render()
 }
 
 
-void RugbyWrapper::Reset(const RugbyWrapper def)
+void RugbyWrapper::Reset()
 {
     const bool wasEnabled = Enabled;
-    *this = def;
+    *this = RugbyWrapper(dynamic_cast<const RugbyWrapper*>(Archetype));
     Enabled = wasEnabled;
 }
 
 
-void RugbyWrapper::Multiply(const RugbyWrapper def, const float forceMultiplier, const float rangeMultiplier, const float durationMultiplier)
+void RugbyWrapper::Multiply(const float forceMultiplier, const float rangeMultiplier,
+    const float durationMultiplier)
 {
-    Super::Multiply(static_cast<RumbleWrapper>(def), forceMultiplier, rangeMultiplier, durationMultiplier);
+    Super::Multiply(forceMultiplier, rangeMultiplier, durationMultiplier);
 }

@@ -6,7 +6,7 @@
 class Tag final : public RocketGameMode
 {
 public:
-    explicit Tag(RocketPlugin* rp) : RocketGameMode(rp) { _typeid = std::make_shared<std::type_index>(typeid(*this)); }
+    Tag() { typeIdx = std::make_unique<std::type_index>(typeid(*this)); }
 
     void RenderOptions() override;
     bool IsActive() override;
@@ -34,7 +34,7 @@ private:
     enum class TaggedOption
     {
         NONE,
-        UNLIMITED_BOOST,
+        FORCED_BOOST,
         DIFFERENT_COLOR
     };
 

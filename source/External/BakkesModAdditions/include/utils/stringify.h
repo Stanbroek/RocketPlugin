@@ -55,8 +55,8 @@ inline std::string get_addr(const void* ptr)
 inline std::string to_lower(const std::string& str)
 {
     std::string str_cpy = str;
-    std::transform(str_cpy.begin(), str_cpy.end(), str_cpy.begin(),
-        [](unsigned char c) { return static_cast<unsigned char>(std::tolower(c)); });
+    std::ranges::transform(str_cpy, str_cpy.begin(),
+        [](const unsigned char c) { return static_cast<unsigned char>(std::tolower(c)); });
 
     return str_cpy;
 }
@@ -64,8 +64,8 @@ inline std::string to_lower(const std::string& str)
 inline std::wstring to_lower(const std::wstring& wstr)
 {
     std::wstring wstr_cpy = wstr;
-    std::transform(wstr_cpy.begin(), wstr_cpy.end(), wstr_cpy.begin(),
-        [](wchar_t c) { return static_cast<wchar_t>(std::tolower(c)); });
+    std::ranges::transform(wstr_cpy, wstr_cpy.begin(),
+        [](const wchar_t c) { return static_cast<wchar_t>(std::tolower(c)); });
 
     return wstr_cpy;
 }
@@ -74,8 +74,8 @@ inline std::wstring to_lower(const std::wstring& wstr)
 inline std::string to_upper(const std::string& str)
 {
     std::string str_cpy = str;
-    std::transform(str_cpy.begin(), str_cpy.end(), str_cpy.begin(),
-        [](unsigned char c) { return static_cast<unsigned char>(std::toupper(c)); });
+    std::ranges::transform(str_cpy, str_cpy.begin(),
+        [](const unsigned char c) { return static_cast<unsigned char>(std::toupper(c)); });
 
     return str_cpy;
 }
@@ -83,8 +83,8 @@ inline std::string to_upper(const std::string& str)
 inline std::wstring to_upper(const std::wstring& wstr)
 {
     std::wstring wstr_cpy = wstr;
-    std::transform(wstr_cpy.begin(), wstr_cpy.end(), wstr_cpy.begin(),
-        [](wchar_t c) { return static_cast<wchar_t>(std::toupper(c)); });
+    std::ranges::transform(wstr_cpy, wstr_cpy.begin(),
+        [](const wchar_t c) { return static_cast<wchar_t>(std::toupper(c)); });
 
     return wstr_cpy;
 }
@@ -143,11 +143,11 @@ inline std::wstring to_wstring(const std::string& str)
 
 
 struct case_insensitive_less {
-    bool operator()(const std::string& _Left, const std::string& _Right) const {
-        return to_lower(_Left) < to_lower(_Right);
+    bool operator()(const std::string& left, const std::string& right) const {
+        return to_lower(left) < to_lower(right);
     }
 
-    bool operator()(const std::wstring& _Left, const std::wstring& _Right) const {
-        return to_lower(_Left) < to_lower(_Right);
+    bool operator()(const std::wstring& left, const std::wstring& right) const {
+        return to_lower(left) < to_lower(right);
     }
 };

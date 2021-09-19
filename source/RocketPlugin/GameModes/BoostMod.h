@@ -1,12 +1,11 @@
 #pragma once
-#include "RocketPlugin.h"
 #include "GameModes/RocketGameMode.h"
 
 
 class BoostMod final : public RocketGameMode
 {
 public:
-    explicit BoostMod(RocketPlugin* rp) : RocketGameMode(rp) { _typeid = std::make_shared<std::type_index>(typeid(*this)); }
+    BoostMod() { typeIdx = std::make_unique<std::type_index>(typeid(*this)); }
 
     void RenderOptions() override;
     bool IsActive() override;
@@ -14,7 +13,8 @@ public:
     std::string GetGameModeName() override;
 
 private:
-    struct BoostModifier {
+    struct BoostModifier
+    {
         // Whether the modifier should be considered.
         bool Enabled = false;
         // Maximum amount of boost player can have. (Range: 0-100)

@@ -2,8 +2,11 @@
 // Touch the ball to get points.
 //
 // Author:        Stanbroek
-// Version:       0.2.2 15/04/21
+// Version:       0.2.3 28/08/21
 // BMSDK version: 95
+
+// BUG's:
+//  - Clients still get normal points.
 
 #include "KeepAway.h"
 
@@ -20,7 +23,7 @@ void KeepAway::RenderOptions()
         }
     }
     if (ImGui::Button("Reset points")) {
-        rocketPlugin->Execute([this](GameWrapper*) {
+        Execute([this](GameWrapper*) {
             resetPoints();
         });
     }
@@ -44,27 +47,33 @@ void KeepAway::Activate(const bool active)
     if (active && !isActive) {
         lastTouched = emptyPlayer;
         timeSinceLastPoint = 0;
-        HookEventWithCaller<ServerWrapper>("Function GameEvent_Soccar_TA.Active.Tick",
+        HookEventWithCaller<ServerWrapper>(
+            "Function GameEvent_Soccar_TA.Active.Tick",
             [this](const ServerWrapper& caller, void* params, const std::string&) {
                 onTick(caller, params);
             });
-        HookEventWithCaller<ActorWrapper>("Function TAGame.PRI_TA.GiveScore",
+        HookEventWithCaller<ActorWrapper>(
+            "Function TAGame.PRI_TA.GiveScore",
             [this](const ActorWrapper& caller, void*, const std::string&) {
                 onGiveScorePre(caller);
             });
-        HookEventWithCallerPost<ActorWrapper>("Function TAGame.PRI_TA.GiveScore",
+        HookEventWithCallerPost<ActorWrapper>(
+            "Function TAGame.PRI_TA.GiveScore",
             [this](const ActorWrapper& caller, void*, const std::string&) {
                 onGiveScorePost(caller);
             });
-        HookEventWithCaller<BallWrapper>("Function TAGame.Ball_TA.EventCarTouch",
+        HookEventWithCaller<BallWrapper>(
+            "Function TAGame.Ball_TA.EventCarTouch",
             [this](const BallWrapper&, void* params, const std::string&) {
                 onCarTouch(params);
             });
-        HookEventWithCaller<CarWrapper>("Function TAGame.Car_TA.OnHitBall",
+        HookEventWithCaller<CarWrapper>(
+            "Function TAGame.Car_TA.OnHitBall",
             [this](const CarWrapper& car, void*, const std::string&) {
                 onBallTouch(car);
             });
-        HookEventWithCaller<ActorWrapper>("Function TAGame.GameEvent_Soccar_TA.EventGoalScored",
+        HookEventWithCaller<ActorWrapper>(
+            "Function TAGame.GameEvent_Soccar_TA.EventGoalScored",
             [this](const ActorWrapper&, void*, const std::string&) {
                 lastTouched = emptyPlayer;
             });
@@ -96,10 +105,7 @@ std::string KeepAway::GetGameModeName()
 /// <param name="params">Delay since last update</param>
 void KeepAway::onTick(ServerWrapper server, void* params)
 {
-    if (server.IsNull()) {
-        ERROR_LOG("could not get the server");
-        return;
-    }
+    BMCHECK(server);
 
     if (lastTouched == emptyPlayer) {
         return;
@@ -113,18 +119,15 @@ void KeepAway::onTick(ServerWrapper server, void* params)
     }
 
     const int points = static_cast<int>(floorf(timeSinceLastPoint / secPerPoint));
-    std::vector<PriWrapper> players = rocketPlugin->GetPlayers(true);
+    const std::vector<PriWrapper> players = Outer()->playerMods.GetPlayers(true);
     for (PriWrapper player : players) {
         if (player.GetUniqueIdWrapper().GetUID() == lastTouched) {
             player.SetMatchScore(player.GetMatchScore() + points);
             player.ForceNetUpdate2();
             TeamInfoWrapper team = player.GetTeam();
-            if (!team.IsNull()) {
-                rocketPlugin->SetScore(player.GetTeamNum(), team.GetScore() + points);
-            }
-            else {
-                WARNING_LOG("could not get players team");
-            }
+            BMCHECK_LOOP(team);
+
+            Outer()->matchSettings.SetScore(player.GetTeamNum(), team.GetScore() + points);
         }
     }
 
@@ -141,10 +144,7 @@ void KeepAway::onGiveScorePre(ActorWrapper caller)
         return;
     }
     PriWrapper player = PriWrapper(caller.memory_address);
-    if (player.IsNull()) {
-        ERROR_LOG("could not get the player");
-        return;
-    }
+    BMCHECK(player);
 
     lastNormalScore = player.GetMatchScore();
 }
@@ -160,10 +160,7 @@ void KeepAway::onGiveScorePost(ActorWrapper caller) const
     }
 
     PriWrapper player = PriWrapper(caller.memory_address);
-    if (player.IsNull()) {
-        ERROR_LOG("could not get the actor");
-        return;
-    }
+    BMCHECK(player);
 
     player.SetMatchScore(lastNormalScore);
     player.ForceNetUpdate2();
@@ -175,19 +172,13 @@ void KeepAway::onGiveScorePost(ActorWrapper caller) const
 /// <param name="car"><see cref="CarWrapper"/> that touched the ball</param>
 void KeepAway::onBallTouch(CarWrapper car)
 {
-    if (car.IsNull()) {
-        ERROR_LOG("could not get the car");
-        return;
-    }
+    BMCHECK(car);
 
     PriWrapper pri = car.GetPRI();
-    if (pri.IsNull()) {
-        ERROR_LOG("could not get the pri");
-        return;
-    }
+    BMCHECK(pri);
 
     lastTouched = pri.GetUniqueIdWrapper().GetUID();
-    TRACE_LOG("{} touched the ball", quote(car.GetOwnerName()));
+    BM_TRACE_LOG("{:s} touched the ball", quote(car.GetOwnerName()));
     timeSinceLastPoint = 0;
 }
 
@@ -198,27 +189,18 @@ void KeepAway::resetPoints()
     lastTouched = emptyPlayer;
     timeSinceLastPoint = 0;
 
-    ServerWrapper game = rocketPlugin->GetGame();
-    if (game.IsNull()) {
-        ERROR_LOG("could not get the local game");
-        return;
-    }
+    ServerWrapper game = Outer()->GetGame();
+    BMCHECK(game);
 
     for (PriWrapper player : game.GetPRIs()) {
-        if (player.IsNull()) {
-            WARNING_LOG("could not get the pri");
-            continue;
-        }
+        BMCHECK_LOOP(player);
 
         player.SetMatchScore(0);
         player.ForceNetUpdate2();
     }
 
     for (TeamWrapper team : game.GetTeams()) {
-        if (team.IsNull()) {
-            WARNING_LOG("could not get the pri");
-            continue;
-        }
+        BMCHECK_LOOP(team);
 
         team.SetScore(0);
     }

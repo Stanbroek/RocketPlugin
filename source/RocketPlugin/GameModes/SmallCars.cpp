@@ -2,14 +2,14 @@
 // Should scale cars properly.
 //
 // Author:        Stanbroek
-// Version:       0.0.1 13/07/21
+// Version:       0.0.2 28/08/21
 // BMSDK version: 95
 
 #include "SmallCars.h"
 
 #define UPDATE_FLOAT_COMPONENT_(type, component, scale)                 \
     if (b##component) {                                                 \
-        TRACE_LOG(#type"::"#component": {}", (scale));                  \
+        BM_TRACE_LOG(#type"::"#component": {:.3f}", (scale));           \
         obj##type.Set##component(obj##type.Get##component() * (scale)); \
     }
 
@@ -43,7 +43,7 @@
 /// <summary>Renders the available options for the game mode.</summary>
 void SmallCars::RenderOptions()
 {
-    ServerWrapper game = rocketPlugin->GetGame();
+    ServerWrapper game = Outer()->GetGame();
     if (game.IsNull()) {
         ImGui::TextUnformatted("You must be in a game");
         return;
@@ -67,24 +67,23 @@ void SmallCars::RenderOptions()
     AirControlComponentWrapper objAirControlComponentWrapper = objCarWrapper.GetAirControlComponent();
     JumpComponentWrapper objJumpComponentWrapper = objCarWrapper.GetJumpComponent();
     DoubleJumpComponentWrapper objDoubleJumpComponentWrapper = objCarWrapper.GetDoubleJumpComponent();
-    if (objFlipCarComponentWrapper.IsNull() || objVehicleSimWrapper.IsNull() ||
-        objBoostWrapper.IsNull() || objDodgeComponentWrapper.IsNull() ||
-        objAirControlComponentWrapper.IsNull() || objJumpComponentWrapper.IsNull() ||
-        objDoubleJumpComponentWrapper.IsNull()) {
+    if (objFlipCarComponentWrapper.IsNull() || objVehicleSimWrapper.IsNull() || objBoostWrapper.IsNull() ||
+        objDodgeComponentWrapper.IsNull() || objAirControlComponentWrapper.IsNull() || objJumpComponentWrapper.IsNull()
+        || objDoubleJumpComponentWrapper.IsNull()) {
         ImGui::TextUnformatted("Car components must be valid");
         return;
     }
 
-    const float carScale = rocketPlugin->GetCarScale(objCarWrapper.GetPRI());
+    const float carScale = Outer()->carPhysicsMods.GetCarScale(objCarWrapper.GetPRI());
     float carScaleTmp = carScale;
     if (ImGui::SliderFloat("Car Scale", &carScaleTmp, 0.1f, 2.0f, "%.1fX")) {
-        rocketPlugin->Execute([this, player = objCarWrapper.GetPRI(), newCarScale = carScaleTmp](GameWrapper*) {
-            rocketPlugin->SetCarScale(player, newCarScale, true);
+        Execute([this, player = objCarWrapper.GetPRI(), newCarScale = carScaleTmp](GameWrapper*) {
+            Outer()->carPhysicsMods.SetCarScale(player, newCarScale, true);
         });
     }
 
     if (isActive && oldScale != carScale) {
-        TRACE_LOG("{:.3f} -> {:.3f}", oldScale, carScale);
+        BM_TRACE_LOG("{:.3f} -> {:.3f}", oldScale, carScale);
         UPDATE_FLOAT_COMPONENT(CarWrapper, MaxLinearSpeed);
         UPDATE_FLOAT_COMPONENT(CarWrapper, MaxAngularSpeed);
         UPDATE_FLOAT_COMPONENT(FlipCarComponentWrapper, FlipCarImpulse);
@@ -256,7 +255,8 @@ bool SmallCars::IsActive()
 void SmallCars::Activate(const bool active)
 {
     if (active && !isActive) {
-        HookEventWithCaller<ServerWrapper>("Function TAGame.Car_TA.PostBeginPlay",
+        HookEventWithCaller<ServerWrapper>(
+            "Function TAGame.Car_TA.PostBeginPlay",
             [this](const ServerWrapper&, void*, const std::string&) {
                 oldScale = 1;
             });

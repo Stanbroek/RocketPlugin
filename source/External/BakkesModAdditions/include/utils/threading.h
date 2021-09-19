@@ -1,10 +1,10 @@
 #pragma once
 #include <list>
 #include <mutex>
+#include <future>
 #include <thread>
 #include <vector>
 #include <cassert>
-#include <sstream>
 #include <functional>
 
 #ifndef FMT_HEADER_ONLY
@@ -13,60 +13,118 @@
 #include "fmt/format.h"
 #include "fmt/ostream.h"
 
-#include "exception_safety.h"
-
 extern std::thread::id GameThreadId;
 extern std::thread::id RenderThreadId;
 
 
-inline std::thread save_thread(const std::function<void()>& lambda, const std::string& comment = "")
+template<class... Args>
+static inline std::thread save_thread(const std::string& comment, const std::function<void()>& lambda)
 {
-    return std::thread([=]() {
-        SET_SE_TRANSLATOR;
-        TRY_CATCH_EXCEPTIONS(lambda();, fmt::format("thread#{} {}", std::this_thread::get_id(), comment));
+    return std::thread([=]() -> void {
+        try {
+            return lambda();
+        }
+        catch (...) {
+            BM_CRITICAL_LOG("thread #{:s} {:s} crashed", std::this_thread::get_id(), comment);
+        }
     });
 }
 
 
-//template <class _Cls>
-//std::thread save_thread(const std::function<void(_Cls*)>& lambda, _Cls* cls)
-//{
-//    return std::thread([=]() {
-//        try {
-//            lambda(cls);
-//        }
-//        catch (...) {
-//            std::stringstream ss;
-//            ss << std::this_thread::get_id();
-//            CRITICAL_LOG("thread #{} crashed", ss.str());
-//        }
-//    });
-//}
+template<class... Args>
+static inline std::thread save_thread(const std::string& comment, void(*func)(Args...), const Args&&... args)
+{
+    return std::thread([=]() -> void {
+        try {
+            return func(std::forward<Args>(args)...);
+        }
+        catch (...) {
+            BM_CRITICAL_LOG("thread #{:s} {:s} crashed", std::this_thread::get_id(), comment);
+        }
+    });
+}
 
 
-//template <class _Cls, class... _Args>
-//std::thread save_thread(const std::function<void(_Cls*, _Args...)> lambda, _Cls* cls, _Args... args)
-//{
-//    return std::thread([=]() {
-//        try {
-//            lambda(cls, args...);
-//        }
-//        catch (...) {
-//            std::stringstream ss;
-//            ss << std::this_thread::get_id();
-//            CRITICAL_LOG("thread #{} crashed", ss.str());
-//        }
-//    });
-//}
+template<class Cls, class... Args>
+static inline std::thread save_thread(const std::string& comment, void(Cls::*func)(Args...), Cls* cls, const Args&&... args)
+{
+    return std::thread([=]() -> void {
+        try {
+            return (cls->*func)(std::forward<Args>(args)...);
+        }
+        catch (...) {
+            BM_CRITICAL_LOG("thread #{:s} {:s} crashed", std::this_thread::get_id(), comment);
+        }
+    });
+}
 
 
-inline bool is_game_thread()
+template<typename Ret>
+static inline std::future<Ret> save_promise(const std::string& comment, const std::function<Ret()>& lambda)
+{
+    return std::async([=]() -> Ret {
+        try {
+            return lambda();
+        }
+        catch (...) {
+            BM_CRITICAL_LOG("thread #{:s} {:s} crashed", std::this_thread::get_id(), comment);
+        }
+        return Ret{};
+    });
+}
+
+
+template<typename Ret, class... Args>
+static inline std::future<Ret> save_promise(const std::string& comment, Ret(*func)(Args...), const Args&&... args)
+{
+    return std::async([=]() -> Ret {
+        try {
+            return func(std::forward<Args>(args)...);
+        }
+        catch (...) {
+            BM_CRITICAL_LOG("thread #{:s} {:s} crashed", std::this_thread::get_id(), comment);
+        }
+        return Ret{};
+    });
+}
+
+
+template<typename Ret, class Cls, class... Args>
+static inline std::future<Ret> save_promise(const std::string& comment, Ret(Cls::* func)(Args...), Cls* cls, const Args&&... args)
+{
+    return std::async([=]() -> Ret {
+        try {
+            return (cls->*func)(std::forward<Args>(args)...);
+        }
+        catch (...) {
+            BM_CRITICAL_LOG("thread #{:s} {:s} crashed", std::this_thread::get_id(), comment);
+        }
+        return Ret{};
+    });
+}
+
+
+static inline void set_game_thread()
+{
+    GameThreadId = std::this_thread::get_id();
+}
+
+
+static inline void set_game_thread_once()
+{
+    if (GameThreadId == std::thread::id()) {
+        set_game_thread();
+    }
+}
+
+
+static inline bool is_game_thread()
 {
     return std::this_thread::get_id() == GameThreadId;
 }
 
 
-inline void assert_game_thread([[maybe_unused]] const wchar_t* message, [[maybe_unused]] const wchar_t* file = L"", [[maybe_unused]] unsigned int line = 0)
+static inline void assert_game_thread([[maybe_unused]] const wchar_t* message, [[maybe_unused]] const wchar_t* file = L"", [[maybe_unused]] const unsigned int line = 0)
 {
     if (!is_game_thread()) {
 #ifndef NDEBUG
@@ -76,13 +134,27 @@ inline void assert_game_thread([[maybe_unused]] const wchar_t* message, [[maybe_
 }
 
 
-inline bool is_render_thread()
+static inline void set_render_thread()
+{
+    RenderThreadId = std::this_thread::get_id();
+}
+
+
+static inline void set_render_thread_once()
+{
+    if (RenderThreadId == std::thread::id()) {
+        set_render_thread();
+    }
+}
+
+
+static inline bool is_render_thread()
 {
     return std::this_thread::get_id() == RenderThreadId;
 }
 
 
-inline void assert_render_thread([[maybe_unused]] const wchar_t* message, [[maybe_unused]] const wchar_t* file = L"", [[maybe_unused]] unsigned int line = 0)
+static inline void assert_render_thread([[maybe_unused]] const wchar_t* message, [[maybe_unused]] const wchar_t* file = L"", [[maybe_unused]] const unsigned int line = 0)
 {
     if (!is_render_thread()) {
 #ifndef NDEBUG
@@ -115,9 +187,7 @@ public:
     /// <summary>Creates a save thread to queue to call jobs on.</summary>
     JobQueue(catch_exceptions_t)
     {
-        thread = save_thread([this]() {
-            entry();
-        }, "JobQueue");
+        thread = save_thread("JobQueue", &JobQueue::entry, this);
     }
 
     /// <summary>Waits for the last job to finish and removes queue.</summary>
@@ -134,9 +204,9 @@ public:
     }
 
     JobQueue(const JobQueue&) = delete;
-    JobQueue(JobQueue&&) = default;
+    JobQueue(JobQueue&&) = delete;
     JobQueue& operator=(const JobQueue&) = delete;
-    JobQueue& operator=(JobQueue&&) = default;
+    JobQueue& operator=(JobQueue&&) = delete;
 
     /// <summary>Adds job_t's to the job queue to be execute on a separate thread.</summary>
     /// <param name="job">function to be executed</param>
@@ -193,7 +263,7 @@ private:
 };
 
 
-template<size_t _Threads, std::enable_if_t<(_Threads > 0), int> = 0>
+template<size_t Threads, std::enable_if_t<(Threads > 0), int> = 0>
 class JobPool
 {
 public:
@@ -202,7 +272,7 @@ public:
     /// <summary>Creates threads to queue jobs on.</summary>
     JobPool()
     {
-        for (size_t i = _Threads; i > 0; --i) {
+        for (size_t i = Threads; i > 0; --i) {
             jobPool.push_back(std::make_unique<JobQueue>());
         }
         wait();
@@ -211,7 +281,7 @@ public:
     /// <summary>Creates save threads to queue jobs on.</summary>
     JobPool(catch_exceptions_t)
     {
-        for (size_t i = _Threads; i > 0; --i) {
+        for (size_t i = Threads; i > 0; --i) {
             jobPool.push_back(std::make_unique<JobQueue>(catch_exceptions));
         }
         wait();
@@ -224,8 +294,8 @@ public:
     explicit JobPool(const job_t& job, const size_t begin, const size_t end)
     {
         const size_t jobs = end - begin;
-        const size_t step = jobs / _Threads + (jobs % _Threads == 0 ? 0 : 1);
-        for (size_t i = _Threads; i > 0; i--) {
+        const size_t step = jobs / Threads + (jobs % Threads == 0 ? 0 : 1);
+        for (size_t i = Threads; i > 0; --i) {
             threadPool.push_back(std::thread(&JobPool::execute, this, job, (i - 1) * step, std::min(i * step, jobs)));
         }
     }
@@ -237,11 +307,11 @@ public:
     explicit JobPool(const job_t& job, const size_t begin, const size_t end, catch_exceptions_t)
     {
         const size_t jobs = end - begin;
-        const size_t step = jobs / _Threads + (jobs % _Threads == 0 ? 0 : 1);
-        for (size_t i = _Threads; i > 0; i--) {
-            threadPool.push_back(save_thread([=]() {
+        const size_t step = jobs / Threads + (jobs % Threads == 0 ? 0 : 1);
+        for (size_t i = Threads; i > 0; --i) {
+            threadPool.push_back(save_thread("JobPool", [=]() {
                 execute(job, (i - 1) * step, std::min(i * step, jobs));
-            }, "JobPool"));
+            }));
         }
     }
 
@@ -263,7 +333,7 @@ public:
     void addJob(const job_t& job, const size_t begin, const size_t end = 0)
     {
         const size_t jobs = std::max(begin, end) - std::min(begin, end);
-        const size_t step = jobs / _Threads + (jobs % _Threads == 0 ? 0 : 1);
+        const size_t step = jobs / Threads + (jobs % Threads == 0 ? 0 : 1);
         for (size_t i = 0; i < jobPool.size(); i++) {
             jobPool[i]->addJob([=]() {
                 execute(job, i  * step, std::min((i + 1) * step, jobs));
@@ -284,7 +354,7 @@ public:
     }
 
 private:
-    void execute(const job_t& job, const size_t begin, const size_t end)
+    void execute(const job_t& job, const size_t begin, const size_t end) const
     {
         for (size_t i = begin; i < end; i++) {
             job(i);

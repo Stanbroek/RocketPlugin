@@ -1,8 +1,8 @@
 // P2PHost.cpp
-// UDP hole punching using STUN for the RocketPlugin plugin.
+// UDP hole punching using STUN for Rocket Plugin.
 //
 // Author:       Stanbroek
-// Version:      0.6.5 05/02/21
+// Version:      0.6.8 18/09/21
 //
 // References:
 //  https://en.wikipedia.org/wiki/UDP_hole_punching
@@ -76,7 +76,7 @@ SOCKET GetBoundSocket(const u_short port, const std::string& localIP = "0.0.0.0"
     // Create a socket for sending data.
     const SOCKET sendSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (sendSocket == INVALID_SOCKET) {
-        ERROR_LOG("failed to create a socket: {}", quote(make_winsock_error_code().message()));
+        BM_ERROR_LOG("failed to create a socket: {:s}", quote(make_winsock_error_code().message()));
         return INVALID_SOCKET;
     }
 
@@ -89,7 +89,7 @@ SOCKET GetBoundSocket(const u_short port, const std::string& localIP = "0.0.0.0"
     }
     addrSrc.sin_port = htons(port);
     if (bind(sendSocket, reinterpret_cast<sockaddr*>(&addrSrc), sizeof addrSrc) == SOCKET_ERROR) {
-        ERROR_LOG("failed to bind the socket: {}", quote(make_winsock_error_code().message()));
+        BM_ERROR_LOG("failed to bind the socket: {:s}", quote(make_winsock_error_code().message()));
         closesocket(sendSocket);
         return INVALID_SOCKET;
     }
@@ -98,7 +98,7 @@ SOCKET GetBoundSocket(const u_short port, const std::string& localIP = "0.0.0.0"
     BOOL bOptVal = TRUE;
     const int bOptLen = sizeof BOOL;
     if (setsockopt(sendSocket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char*>(&bOptVal), bOptLen) == SOCKET_ERROR) {
-        ERROR_LOG("failed set SO_REUSEADDR: {}", quote(make_winsock_error_code().message()));
+        BM_ERROR_LOG("failed set SO_REUSEADDR: {:s}", quote(make_winsock_error_code().message()));
         closesocket(sendSocket);
         return INVALID_SOCKET;
     }
@@ -110,7 +110,7 @@ SOCKET GetBoundSocket(const u_short port, const std::string& localIP = "0.0.0.0"
 void FillBuffer(char* buf, const size_t bufLen, size_t& offset, void* src, const size_t srcSize)
 {
     if (offset + srcSize >= bufLen) {
-        ERROR_LOG("{} >= {}", offset + srcSize, bufLen);
+        BM_ERROR_LOG("{:d} >= {:d}", offset + srcSize, bufLen);
         return;
     }
 
@@ -242,28 +242,28 @@ StunResponse ParseStunResponse(char* buf, int bufLen)
 {
     StunResponse resp;
     if (bufLen < 20) {
-        ERROR_LOG("got an empty stun response");
+        BM_ERROR_LOG("got an empty stun response");
         return resp;
     }
 
     resp.MsgType = static_cast<uint16_t>(buf[0] << 8 | buf[1]);
     if (!IS_SUCCESS_RESP(resp.MsgType)) {
-        ERROR_LOG("got an unsuccessful stun response: {:#X}", resp.MsgType);
+        BM_ERROR_LOG("got an unsuccessful stun response: {:#X}", resp.MsgType);
         return resp;
     }
 
     resp.MsgLen = static_cast<uint16_t>(buf[2] << 8 | buf[3]);
     if (resp.MsgLen < 12 || resp.MsgLen + 20 > bufLen) {
-        ERROR_LOG("got an invalid response message length");
+        BM_ERROR_LOG("got an invalid response message length");
         return resp;
     }
 
     if (memcpy_s(resp.Cookie, 4, buf + 4, 4) != 0) {
-        ERROR_LOG("got an invalid response cookie");
+        BM_ERROR_LOG("got an invalid response cookie");
         return resp;
     }
     if (memcpy_s(resp.TransId, 12, buf + 8, 12) != 0) {
-        ERROR_LOG("got an invalid response transaction id");
+        BM_ERROR_LOG("got an invalid response transaction id");
         return resp;
     }
 
@@ -288,7 +288,7 @@ StunResponse ParseStunResponse(char* buf, int bufLen)
                 resp.Addr.Family = static_cast<uint8_t>(buf[base + 5]);
                 if (resp.Addr.Family == IPV4) {
                     resp.Addr.Port = htons(*reinterpret_cast<uint16_t*>(buf + base + 6)) ^ MAGIC_COOKIE_END;
-                    uint32_t ip = ntohl(htonl(*reinterpret_cast<uint32_t*>(buf + base + 8)) ^ MAGIC_COOKIE);
+                    const uint32_t ip = ntohl(htonl(*reinterpret_cast<uint32_t*>(buf + base + 8)) ^ MAGIC_COOKIE);
                     resp.Addr.IP = Networking::IPv4ToString(&ip);
                     break;
                 }
@@ -312,7 +312,7 @@ StunResponse ParseStunResponse(char* buf, int bufLen)
 /// <param name="resp"><see cref="stunResponse"/> to store the response in</param>
 /// <returns>Whether the request errored</returns>
 int SendStunRequest(const SOCKET sock, sockaddr addrDest, const u_short attrType, const bool changeIP,
-                    const bool changePort, StunResponse* resp)
+    const bool changePort, StunResponse* resp)
 {
     // Send a datagram to the receiver up to three times.
     int iResult = 0;
@@ -323,10 +323,10 @@ int SendStunRequest(const SOCKET sock, sockaddr addrDest, const u_short attrType
     for (size_t i = 0; i < sendBufLen; i++) {
         strBuf += " " + to_hex(sendBuf[i]);
     }
-    TRACE_LOG("sending buf[{}]: {}", sendBufLen, quote(strBuf));
+    BM_TRACE_LOG("sending buf[{:d}]: {:s}", sendBufLen, quote(strBuf));
     for (int i = 0; i < 3; i++) {
         if (sendto(sock, sendBuf, static_cast<int>(sendBufLen), 0, &addrDest, sizeof addrDest) == SOCKET_ERROR) {
-            ERROR_LOG("failed to send data: {}", quote(make_winsock_error_code().message()));
+            BM_ERROR_LOG("failed to send data: {:s}", quote(make_winsock_error_code().message()));
             return SOCKET_ERROR;
         }
 
@@ -336,17 +336,17 @@ int SendStunRequest(const SOCKET sock, sockaddr addrDest, const u_short attrType
         FD_SET(sock, &fds);
         iResult = select(NULL, &fds, nullptr, nullptr, &NETWORK_TIMEOUT);
         if (iResult == SOCKET_ERROR) {
-            ERROR_LOG("failed to get the socket status: {}", quote(make_winsock_error_code().message()));
+            BM_ERROR_LOG("failed to get the socket status: {:s}", quote(make_winsock_error_code().message()));
             return SOCKET_ERROR;
         }
         if (iResult != 0) {
             break;
         }
-        WARNING_LOG("stun request timed out");
+        BM_WARNING_LOG("stun request timed out");
     }
     // Connection timed out.
     if (iResult == 0) {
-        ERROR_LOG("stun request timed out");
+        BM_ERROR_LOG("stun request timed out");
         return SOCKET_ERROR;
     }
 
@@ -355,15 +355,16 @@ int SendStunRequest(const SOCKET sock, sockaddr addrDest, const u_short attrType
     int addrRetDestSize = sizeof addrRetDest;
     // Receive a datagram from the receiver.
     char recvBuf[1024];
-    const size_t recvBufLen = sizeof recvBuf;
+    constexpr size_t recvBufLen = sizeof recvBuf;
     if (recvfrom(sock, recvBuf, static_cast<int>(recvBufLen), NULL, &addrRetDest, &addrRetDestSize) == SOCKET_ERROR) {
-        ERROR_LOG("failed to receive data: {}", quote(make_winsock_error_code().message()));
+        BM_ERROR_LOG("failed to receive data: {:s}", quote(make_winsock_error_code().message()));
         return SOCKET_ERROR;
     }
 
     *resp = ParseStunResponse(recvBuf, recvBufLen);
-    TRACE_LOG("recieved response: {{ MsgType: {}, MsgLen: {}, Cookie: {}, TransId: {}, Addr: {} }}",
-        resp->MsgType, resp->MsgLen, to_hex(resp->Cookie, 4), to_hex(resp->TransId, 12),
+    BM_TRACE_LOG(
+        "recieved response: {{ MsgType: {:X}, MsgLen: {:d}, Cookie: {:s}, TransId: {:s}, Addr: {:s} }}", resp->MsgType,
+        resp->MsgLen, to_hex(resp->Cookie, 4), to_hex(resp->TransId, 12),
         quote(resp->Addr.IP + ":" + std::to_string(resp->Addr.Port)));
 
     return 0;
@@ -396,7 +397,8 @@ std::vector<sockaddr> ParseStunServers(const std::filesystem::path& path)
             hints.ai_socktype = SOCK_DGRAM;
             hints.ai_protocol = IPPROTO_UDP;
             if (getaddrinfo(ip.c_str(), port.c_str(), &hints, &result) != 0) {
-                ERROR_LOG("failed to translate {}, {}", quote(ip + ":" + port), quote(make_winsock_error_code().message()));
+                BM_ERROR_LOG("failed to translate {:s}, {:s}", quote(ip + ":" + port),
+                    quote(make_winsock_error_code().message()));
                 continue;
             }
 
@@ -410,7 +412,7 @@ std::vector<sockaddr> ParseStunServers(const std::filesystem::path& path)
 
 std::string FormatAddr(sockaddr* addr)
 {
-    sockaddr_in* addrIn = reinterpret_cast<sockaddr_in*>(addr);
+    const sockaddr_in* addrIn = reinterpret_cast<sockaddr_in*>(addr);
 
     return Networking::IPv4ToString(&addrIn->sin_addr) + ":" + std::to_string(ntohs(addrIn->sin_port));
 }
@@ -436,7 +438,7 @@ void P2PHost::FindNATType(unsigned short port, bool threaded)
     if (iResult != 0) {
         natType = NATType::NAT_ERROR;
         lastError = make_winsock_error_code();
-        ERROR_LOG("failed to initiate winsock: {}", quote(lastError.message()));
+        BM_ERROR_LOG("failed to initiate winsock: {:s}", quote(lastError.message()));
         return;
     }
 
@@ -456,7 +458,7 @@ void P2PHost::FindNATType(unsigned short port, bool threaded)
     std::string stunServerAddr;
     for (sockaddr stunServer : ParseStunServers(STUN_SERVICES_FILE_PATH)) {
         stunServerAddr = FormatAddr(&stunServer);
-        TRACE_LOG("sending first stun request to {}", quote(stunServerAddr));
+        BM_TRACE_LOG("sending first stun request to {:s}", quote(stunServerAddr));
         if (SendStunRequest(sendSocket, stunServer, RESPONSE_ADDRESS, false, false, &resp1) != SOCKET_ERROR) {
             server = stunServer;
             responded = true;
@@ -464,7 +466,9 @@ void P2PHost::FindNATType(unsigned short port, bool threaded)
         }
         natType = NATType::NAT_ERROR;
         lastError = make_winsock_error_code();
-        ERROR_LOG("failed to connect to {}: {}", quote(stunServerAddr), quote(lastError ? lastError.message() : "Connection timed out."));
+        BM_ERROR_LOG(
+            "failed to connect to {:s}: {:s}", quote(stunServerAddr),
+            quote(lastError ? lastError.message() : "Connection timed out."));
     }
     if (!responded) {
         natType = NATType::NAT_BLOCKED;
@@ -482,7 +486,7 @@ void P2PHost::FindNATType(unsigned short port, bool threaded)
 
     // Send second STUN request.
     StunResponse resp2;
-    TRACE_LOG("sending second stun request to {} which IP change request", quote(stunServerAddr));
+    BM_TRACE_LOG("sending second stun request to {:s} which IP change request", quote(stunServerAddr));
     if (SendStunRequest(sendSocket, server, CHANGE_REQUEST, true, true, &resp1) != SOCKET_ERROR) {
         natType = NATType::NAT_FULL_CONE;
         closesocket(sendSocket);
@@ -492,7 +496,7 @@ void P2PHost::FindNATType(unsigned short port, bool threaded)
 
     // Send third STUN request.
     StunResponse resp3;
-    TRACE_LOG("sending third stun request to {}", quote(stunServerAddr));
+    BM_TRACE_LOG("sending third stun request to {:s}", quote(stunServerAddr));
     if (SendStunRequest(sendSocket, server, RESPONSE_ADDRESS, false, false, &resp1) == SOCKET_ERROR) {
         natType = NATType::NAT_ERROR;
         lastError = make_winsock_error_code();
@@ -504,7 +508,7 @@ void P2PHost::FindNATType(unsigned short port, bool threaded)
     if (resp1.Addr.IP == resp3.Addr.IP && resp1.Addr.Port == resp3.Addr.Port) {
         // Send fourth STUN request.
         StunResponse resp4;
-        TRACE_LOG("sending fourth stun request to {} which port change request", quote(stunServerAddr));
+        BM_TRACE_LOG("sending fourth stun request to {:s} which port change request", quote(stunServerAddr));
         if (SendStunRequest(sendSocket, server, CHANGE_REQUEST, false, true, &resp1) == SOCKET_ERROR) {
             natType = NATType::NAT_RESTRICTED;
         }
@@ -537,7 +541,7 @@ void P2PHost::PunchPort(const std::string& ip, unsigned short port, const bool t
     // Initialize WinSock.
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        ERROR_LOG("failed to initiate winsock: {}", quote(make_winsock_error_code().message()));
+        BM_ERROR_LOG("failed to initiate winsock: {:s}", quote(make_winsock_error_code().message()));
         return;
     }
 
@@ -560,9 +564,9 @@ void P2PHost::PunchPort(const std::string& ip, unsigned short port, const bool t
 
     // Send a datagram to the receiver
     char sendBuf = '\0';
-    const size_t sendBufLen = sizeof sendBuf;
-    sendto(sendSocket, &sendBuf, static_cast<int>(sendBufLen), 0, reinterpret_cast<sockaddr*>(&addrDest),
-           sizeof addrDest);
+    constexpr size_t sendBufLen = sizeof sendBuf;
+    sendto(
+        sendSocket, &sendBuf, static_cast<int>(sendBufLen), 0, reinterpret_cast<sockaddr*>(&addrDest), sizeof addrDest);
 
     closesocket(sendSocket);
     WSACleanup();

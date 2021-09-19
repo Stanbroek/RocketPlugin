@@ -1,8 +1,8 @@
 // Networking.cpp
-// General networking calls for the RocketPlugin plugin.
+// General networking calls for Rocket Plugin.
 //
 // Author:       Stanbroek
-// Version:      0.6.5 05/02/21
+// Version:      0.6.8 18/09/21
 
 #include "Networking.h"
 
@@ -93,8 +93,7 @@ std::string Networking::GetHostStatusHint(const DestAddrType addrType, const Hos
 std::string Networking::IPv4ToString(const void* addr)
 {
     const unsigned char* ip = static_cast<const unsigned char*>(addr);
-    return std::to_string(ip[0]) + "." + std::to_string(ip[1]) + "." + std::to_string(ip[2]) + "." +
-        std::to_string(ip[3]);
+    return fmt::format("{:d}.{:d}.{:d}.{:d}", ip[0], ip[1], ip[2], ip[3]);
 }
 
 
@@ -224,8 +223,7 @@ bool Networking::IsValidDomainName(const std::string& addr)
 /// <param name="recvBufSize">Size of the receive buffer</param>
 /// <returns>Error code</returns>
 std::error_code Networking::NetworkRequest(const std::string& host, const unsigned short port, const int protocol,
-                                           const char* sendBuf, const size_t sendBufSize, char* recvBuf,
-                                           const size_t recvBufSize)
+    const char* sendBuf, const size_t sendBufSize, char* recvBuf, const size_t recvBufSize)
 {
     // Initialize WinSock.
     WSADATA wsaData;
@@ -310,8 +308,9 @@ std::error_code Networking::NetworkRequest(const std::string& host, const unsign
         sockaddr_in addrRetDest{};
         int addrRetDestSize = sizeof addrRetDest;
         // Receive a datagram from the receiver.
-        if (recvfrom(sendSocket, recvBuf, static_cast<int>(recvBufSize), NULL,
-                     reinterpret_cast<sockaddr*>(&addrRetDest), &addrRetDestSize) == SOCKET_ERROR) {
+        if (recvfrom(
+                sendSocket, recvBuf, static_cast<int>(recvBufSize), NULL, reinterpret_cast<sockaddr*>(&addrRetDest),
+                &addrRetDestSize) == SOCKET_ERROR) {
             const std::error_code error = make_winsock_error_code();
             closesocket(sendSocket);
             WSACleanup();
@@ -347,13 +346,13 @@ std::error_code Networking::GetInternalIPAddress(std::string& ipAddr)
         // Make a second call to GetIpAddrTable to get the actual data we want.
         dwRetVal = GetIpAddrTable(pIPAddrTable, &dwSize, 0);
         if (dwRetVal == NO_ERROR) {
-            TRACE_LOG("got {} entries", pIPAddrTable->dwNumEntries);
+            BM_TRACE_LOG("got {:d} entries", pIPAddrTable->dwNumEntries);
             for (size_t i = 0; i < pIPAddrTable->dwNumEntries; i++) {
                 if (pIPAddrTable->table[i].wType & MIB_IPADDR_PRIMARY) {
                     IN_ADDR inAddr;
-                    inAddr.s_addr = static_cast<ULONG>(pIPAddrTable->table[i].dwAddr);
+                    inAddr.s_addr = pIPAddrTable->table[i].dwAddr;
                     ipAddr = IPv4ToString(&inAddr);
-                    TRACE_LOG("found {}", quote(ipAddr));
+                    BM_TRACE_LOG("found {:s}", quote(ipAddr));
                     if (IsPrivateIPv4(ipAddr)) {
                         break;
                     }
@@ -362,13 +361,13 @@ std::error_code Networking::GetInternalIPAddress(std::string& ipAddr)
             }
         }
         else {
-            ERROR_LOG("failed to get the ip addr table");
+            BM_ERROR_LOG("failed to get the ip addr table");
         }
         free(pIPAddrTable);
         pIPAddrTable = nullptr;
     }
     else {
-        ERROR_LOG("failed to alloc the ip addr table");
+        BM_ERROR_LOG("failed to alloc the ip addr table");
     }
 
     return make_win32_error_code(dwRetVal);
@@ -407,8 +406,8 @@ std::error_code Networking::GetExternalIPAddress(const std::string& host, std::s
 
     std::string sendBuf = "GET / HTTP/1.1\r\nHost: " + host + "\r\nConnection: close\r\n\r\n";
     char recvBuf[1024] = "";
-    const std::error_code error = NetworkRequest(host, 80, IPPROTO_TCP, sendBuf.data(), sendBuf.size() + 1, recvBuf,
-                                                 sizeof recvBuf);
+    const std::error_code error = NetworkRequest(
+        host, 80, IPPROTO_TCP, sendBuf.data(), sendBuf.size() + 1, recvBuf, sizeof recvBuf);
     if (error) {
         return error;
     }

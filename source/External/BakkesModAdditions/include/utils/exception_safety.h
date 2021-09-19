@@ -16,26 +16,26 @@
 	//})
 
 #define LOG_EXCEPTIONS(desc, msg, trace)	\
-	LOG("=== Critical error: ===\n{}\n{}\n\n{}", desc, msg, trace)
+	BM_LOG("=== Critical error: ===\n{:s}\n{:s}\n\n{:s}", desc, msg, trace)
 
 #define CATCH_EXCEPTIONS(desc)																					\
 	catch (const std::exception& e) {																			\
 		try {																									\
 			LOG_EXCEPTIONS(desc, e.what(), StackWalkerBM().DumpCallStack());									\
 		}																										\
-		catch (...) { CRITICAL_LOG("Failed to get callstack {}", e.what()); }									\
+		catch (...) { BM_CRITICAL_LOG("Failed to get callstack {:s}", e.what()); }								\
 	}																											\
 	catch (const SE_Exception& e) {																				\
 		try {																									\
 			LOG_EXCEPTIONS(desc, e.getSeMessage(), StackWalkerBM().DumpCallStack(e.GetExceptionPointers()));	\
 		}																										\
-		catch (...) { CRITICAL_LOG("Failed to get callstack {}", e.getSeMessage()); }							\
+		catch (...) { BM_CRITICAL_LOG("Failed to get callstack {:s}", e.getSeMessage()); }						\
 	}																											\
 	catch (...) {																								\
 		try {																									\
 			LOG_EXCEPTIONS(desc, "Unknown exception", StackWalkerBM().DumpCallStack());							\
 		}																										\
-		catch (...) { CRITICAL_LOG("Failed to get callstack"); }												\
+		catch (...) { BM_CRITICAL_LOG("Failed to get callstack"); }												\
 	}
 
 #define TRY_CATCH_EXCEPTIONS(body, desc)	\
@@ -47,22 +47,22 @@
 
 inline void Nothing(void*) {}
 
-inline int LogCallStack(const std::string& desc, PEXCEPTION_POINTERS pExceptionPointers)
+static inline int LogCallStack(const std::string& desc, PEXCEPTION_POINTERS pExceptionPointers)
 {
 	if (pExceptionPointers == nullptr || pExceptionPointers->ExceptionRecord == nullptr) {
-		CRITICAL_LOG("could not get the exception record");
+		BM_CRITICAL_LOG("could not get the exception record");
 		return EXCEPTION_CONTINUE_SEARCH;
 	}
 
 	const DWORD exceptionCode = pExceptionPointers->ExceptionRecord->ExceptionCode;
 	std::string exceptionMessage = GetExceptionMessage(exceptionCode);
-	const std::string exceptionCallStack = StackWalkerBM().DumpCallStack(pExceptionPointers);
+	const std::string exceptionCallStack = to_string(StackWalkerBM().DumpCallStack(pExceptionPointers));
 
 	if (exceptionMessage.empty()) {
 		try {
 			// MSVC exception ptr hack.
 			// https://github.com/microsoft/STL/blob/68b344c9dcda6ddf1a8fca112cb9033f9e50e787/stl/src/excptptr.cpp#L476
-			auto exceptionRecord = std::shared_ptr<const EXCEPTION_RECORD>(pExceptionPointers->ExceptionRecord, Nothing);
+			const auto exceptionRecord = std::shared_ptr<const EXCEPTION_RECORD>(pExceptionPointers->ExceptionRecord, Nothing);
 			__ExceptionPtrRethrow(&exceptionRecord);
 		}
 		catch (const std::exception& e) {
@@ -92,7 +92,7 @@ inline int LogCallStack(const std::string& desc, PEXCEPTION_POINTERS pExceptionP
 }
 
 template<typename Func>
-inline bool GuardedFunction(const std::string& desc, Func lambda)
+static inline bool GuardedFunction(const std::string& desc, Func lambda)
 {
 	__try {
 		lambda();
@@ -100,17 +100,16 @@ inline bool GuardedFunction(const std::string& desc, Func lambda)
 	}
 	__except (LogCallStack(desc, GetExceptionInformation())) {
 		MessageBox(NULL,
-			"Addional info should be provided in the F6 console.\n"
-			"A crashdump should be located in \"%appdata%\\bakkesmod\\bakkesmod\\crashes\".\n"
-			"You can continue to use BakkesMod and Rocket Plugin.",
-			"Rocket Plugin Error", MB_OK | MB_ICONERROR);
+			TEXT("Addional info should be provided in the F6 console.\n")
+			TEXT("A crashdump should be located in \"%appdata%\\bakkesmod\\bakkesmod\\crashes\"."),
+			TEXT("Rocket Plugin Error"), MB_OK | MB_ICONERROR);
 	}
 
 	return false;
 }
 
 #define TRY_EXCEPT(desc, body, args)							\
-	if (GuardedFunction(desc, [&]() { body(args); })) return;
+	if (GuardedFunction(desc, [&]() { body(args); })) { return; }
 
 #define CATCH_FUNCTION(func, body, args, desc, before, after)	\
 	func														\
@@ -125,10 +124,10 @@ inline bool GuardedFunction(const std::string& desc, Func lambda)
 	CATCH_FUNCTION(funcOverride, body, args, desc, before, after)						\
 	func
 
-#define CATCH_ONLOAD													\
-	CATCH_OVERRIDE_FUNCTION(void onLoad(), void OnLoad(), OnLoad,		\
-		, "Game thread exception:", SET_SE_TRANSLATOR;,					\
-		cvarManager->executeCommand("plugin unload RocketPlugin");)
+#define CATCH_ONLOAD															\
+	CATCH_OVERRIDE_FUNCTION(void onLoad(), void OnLoad(), OnLoad,				\
+		, "Game thread exception:", SET_SE_TRANSLATOR;,							\
+		cvarManager->executeCommand("sleep 100; plugin unload RocketPlugin");)
 
 #define CATCH_ONUNLOAD														\
 	CATCH_OVERRIDE_FUNCTION(void onUnload(), void OnUnload(), OnUnload,		\
@@ -141,9 +140,9 @@ inline bool GuardedFunction(const std::string& desc, Func lambda)
 		ImGui::GetStateStorage()->Clear();									\
 		ImGui::NewFrame();)
 
-#define CATCH_RENDER_SETTINGS																		\
-	CATCH_OVERRIDE_FUNCTION(void RenderSettings(), void OnRenderSettings(), OnRenderSettings,		\
-		, "Rendering thread exception:", SET_SE_TRANSLATOR;,										\
+#define CATCH_RENDER_SETTINGS																	\
+	CATCH_OVERRIDE_FUNCTION(void RenderSettings(), void OnRenderSettings(), OnRenderSettings,	\
+		, "Rendering thread exception:", SET_SE_TRANSLATOR;,									\
 		cvarManager->executeCommand("closemenu settings");)
 
 #define CATCH_HOOK_EVENT																											\
@@ -166,9 +165,9 @@ inline bool GuardedFunction(const std::string& desc, Func lambda)
 		callback, caller COMMA_ params COMMA_ _eventName, + quote(eventName) + ", Game thread exception:",																																										\
 		gameWrapper->HookEventWithCallerPost<T> LPARENT_ eventName COMMA_ [=](T caller, void* params, const std::string& _eventName) LBRACKET_, RBRACKET_ RPARENT_;)
 
-#define CATCH_SET_TIMEOUT																					\
-	CATCH_FUNCTION(void SetTimeout(const std::function<void(GameWrapper*)>& theLambda, float time) const,	\
-		theLambda, gw, "Game thread exception:",															\
+#define CATCH_SET_TIMEOUT																						\
+	CATCH_FUNCTION(void SetTimeout(const std::function<void(GameWrapper*)>& theLambda, const float time) const,	\
+		theLambda, gw, "Game thread exception:",																\
 		gameWrapper->SetTimeout LPARENT_ [=](GameWrapper* gw) LBRACKET_, RBRACKET_ COMMA_ time RPARENT_;)
 
 #define CATCH_EXECUTE																		\
@@ -176,9 +175,9 @@ inline bool GuardedFunction(const std::string& desc, Func lambda)
 		theLambda, gw, "Game thread exception:",											\
 		gameWrapper->Execute LPARENT_ [=](GameWrapper* gw) LBRACKET_, RBRACKET_ RPARENT_;)
 
-#define CATCH_REGISTER_NOTIFIER																																										\
-	CATCH_FUNCTION(void RegisterNotifier(const std::string& cvar, const std::function<void(std::vector<std::string>)>& notifier, const std::string& description, unsigned char permissions) const,	\
-		notifier, arguments, + quote(cvar) + ", Game thread exception:",																															\
+#define CATCH_REGISTER_NOTIFIER																																												\
+	CATCH_FUNCTION(void RegisterNotifier(const std::string& cvar, const std::function<void(std::vector<std::string>)>& notifier, const std::string& description, const unsigned char permissions) const,	\
+		notifier, arguments, + quote(cvar) + ", Game thread exception:",																																	\
 		cvarManager->registerNotifier LPARENT_ cvar COMMA_ [=](const std::vector<std::string>& arguments) LBRACKET_, RBRACKET_ COMMA_ description COMMA_ permissions RPARENT_;)
 
 #define CATCH_DEFAULT_BM_FUNCTIONS		\

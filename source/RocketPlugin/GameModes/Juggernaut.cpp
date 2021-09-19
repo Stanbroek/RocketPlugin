@@ -2,7 +2,7 @@
 // Scoring makes you the juggernaut, but there can only be one.
 //
 // Author:        Stanbroek
-// Version:       0.2.1 16/04/21
+// Version:       0.2.2 28/08/21
 // BMSDK version: 95
 
 #include "Juggernaut.h"
@@ -38,19 +38,23 @@ bool Juggernaut::IsActive()
 void Juggernaut::Activate(const bool active)
 {
     if (active && !isActive) {
-        HookEventWithCaller<ServerWrapper>("Function TAGame.GameEvent_TA.EventMatchStarted",
+        HookEventWithCaller<ServerWrapper>(
+            "Function TAGame.GameEvent_TA.EventMatchStarted",
             [this](const ActorWrapper&, void*, const std::string&) {
                 initGame();
             });
-        HookEventWithCaller<ActorWrapper>("Function TAGame.PRI_TA.EventScoredGoal",
+        HookEventWithCaller<ActorWrapper>(
+            "Function TAGame.PRI_TA.EventScoredGoal",
             [this](const ActorWrapper& caller, void*, const std::string&) {
                 onGoalScored(caller);
             });
-        HookEventWithCaller<ActorWrapper>("Function TAGame.PRI_TA.GiveScore",
+        HookEventWithCaller<ActorWrapper>(
+            "Function TAGame.PRI_TA.GiveScore",
             [this](const ActorWrapper& caller, void*, const std::string&) {
                 onGiveScorePre(caller);
             });
-        HookEventWithCallerPost<ActorWrapper>("Function TAGame.PRI_TA.GiveScore",
+        HookEventWithCallerPost<ActorWrapper>(
+            "Function TAGame.PRI_TA.GiveScore",
             [this](const ActorWrapper& caller, void*, const std::string&) {
                 onGiveScorePost(caller);
             });
@@ -81,23 +85,20 @@ std::string Juggernaut::GetGameModeName()
 void Juggernaut::onGoalScored(ActorWrapper caller)
 {
     PriWrapper scorer = PriWrapper(caller.memory_address);
-    if (scorer.IsNull()) {
-        ERROR_LOG("could not get the player");
-        return;
-    }
+    BMCHECK(scorer);
 
-    std::vector<PriWrapper> players = rocketPlugin->GetPlayers();
+    const std::vector<PriWrapper> players = Outer()->playerMods.GetPlayers();
     for (PriWrapper player : players) {
         player.ServerChangeTeam(NOT_JUGGERNAUT_TEAM);
     }
 
     if (scorer.GetPlayerID() == juggernaut) {
-        TRACE_LOG("the juggernaut scored");
+        BM_TRACE_LOG("the juggernaut scored");
         juggernaut = -1;
         scorer.SetMatchGoals(scorer.GetMatchGoals() + 1);
     }
     else {
-        TRACE_LOG("the juggernaut got scored on");
+        BM_TRACE_LOG("the juggernaut got scored on");
         juggernaut = scorer.GetPlayerID();
         scorer.ServerChangeTeam(JUGGERNAUT_TEAM);
     }
@@ -110,10 +111,7 @@ void Juggernaut::onGoalScored(ActorWrapper caller)
 void Juggernaut::onGiveScorePre(ActorWrapper caller)
 {
     PriWrapper player = PriWrapper(caller.memory_address);
-    if (player.IsNull()) {
-        ERROR_LOG("could not get the player");
-        return;
-    }
+    BMCHECK(player);
 
     lastNormalGoals = player.GetMatchGoals();
 }
@@ -125,10 +123,7 @@ void Juggernaut::onGiveScorePre(ActorWrapper caller)
 void Juggernaut::onGiveScorePost(ActorWrapper caller) const
 {
     PriWrapper player = PriWrapper(caller.memory_address);
-    if (player.IsNull()) {
-        ERROR_LOG("could not get the player");
-        return;
-    }
+    BMCHECK(player);
 
     player.SetMatchGoals(lastNormalGoals);
 }
@@ -138,9 +133,9 @@ void Juggernaut::onGiveScorePost(ActorWrapper caller) const
 void Juggernaut::initGame()
 {
     juggernaut = -1;
-    std::vector<PriWrapper> players = rocketPlugin->GetPlayers();
+    const std::vector<PriWrapper> players = Outer()->playerMods.GetPlayers();
     for (PriWrapper player : players) {
         player.ServerChangeTeam(NOT_JUGGERNAUT_TEAM);
     }
-    TRACE_LOG("initialized juggernaut game mode");
+    BM_TRACE_LOG("initialized juggernaut game mode");
 }

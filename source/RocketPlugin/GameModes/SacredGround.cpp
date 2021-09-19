@@ -2,7 +2,7 @@
 // A Rocket Plugin game mode where you have to stay close to your own goal.
 //
 // Author:        Stanbroek
-// Version:       0.0.1 17/04/21
+// Version:       0.0.2 15/08/21
 // BMSDK version: 95
 
 #include "SacredGround.h"
@@ -27,10 +27,11 @@ bool SacredGround::IsActive()
 void SacredGround::Activate(const bool active)
 {
     if (active && !isActive) {
-        HookEventWithCaller<ServerWrapper>("Function GameEvent_Soccar_TA.Active.Tick",
-                                           [this](const ServerWrapper& caller, void*, const std::string&) {
-                                               onTick(caller);
-                                           });
+        HookEventWithCaller<ServerWrapper>(
+            "Function GameEvent_Soccar_TA.Active.Tick",
+            [this](const ServerWrapper& caller, void*, const std::string&) {
+                onTick(caller);
+            });
     }
     else if (!active && isActive) {
         UnhookEvent("Function GameEvent_Soccar_TA.Active.Tick");
@@ -66,27 +67,18 @@ float GetDistance(const Vector& p1, const Vector& p2)
 /// <param name="server"><see cref="ServerWrapper"/> instance of the current server</param>
 void SacredGround::onTick(ServerWrapper server) const
 {
-    if (server.IsNull()) {
-        ERROR_LOG("could not get the server");
-        return;
-    }
+    BMCHECK(server);
 
     for (CarWrapper car : server.GetCars()) {
-        if (car.IsNull()) {
-            WARNING_LOG("could not get the car");
-            continue;
-        }
+        BMCHECK_LOOP(car);
 
         const Vector carLocation = car.GetLocation();
         unsigned char closedGoal = car.GetTeamNum2();
         float closedGoalDistance = std::numeric_limits<float>::max();
 
         for (GoalWrapper goal : server.GetGoals()) {
-            if (goal.IsNull()) {
-                WARNING_LOG("could not get the goal");
-                continue;
-            }
-            
+            BMCHECK_LOOP(goal);
+
             const float distance = GetDistance(carLocation, goal.GetLocation());
             if (distance < closedGoalDistance) {
                 closedGoal = goal.GetTeamNum();
@@ -98,7 +90,7 @@ void SacredGround::onTick(ServerWrapper server) const
             if (demoOnGround && !car.AnyWheelTouchingGround()) {
                 continue;
             }
-            TRACE_LOG("demolished {}, closed goal was {}", quote(car.GetOwnerName()), closedGoal);
+            BM_TRACE_LOG("demolished {:s}, closed goal was {:d}", quote(car.GetOwnerName()), closedGoal);
             car.Demolish();
         }
     }

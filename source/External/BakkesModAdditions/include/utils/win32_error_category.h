@@ -9,7 +9,7 @@
 /// Wrap the Win32 error code so we have a distinct type.
 struct win32_error_code
 {
-    explicit win32_error_code(DWORD e) noexcept : Error(e) {}
+    explicit win32_error_code(const DWORD e) noexcept : Error(e) {}
     DWORD Error;
 };
 
@@ -21,13 +21,13 @@ namespace detail
     {
     public:
         /// Return a short descriptive name for the category.
-        _NODISCARD char const* name() const noexcept override final
+        _NODISCARD char const* name() const noexcept final
         {
             return "Win32Error";
         }
 
         /// Return what each error code means in text.
-        _NODISCARD std::string message(int errVal) const override final
+        _NODISCARD std::string message(int errVal) const final
         {
             char error[1024];
             DWORD len = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL,
@@ -93,9 +93,7 @@ namespace std
 
 class win32_error : public std::exception {
 public:
-    using _Mybase = exception;
-
-    explicit win32_error(const DWORD e) : _Mybase(make_win32_error_code(e).message().c_str()) {}
+    explicit win32_error(const DWORD e) : std::exception(make_win32_error_code(e).message().c_str()) {}
 };
 
 

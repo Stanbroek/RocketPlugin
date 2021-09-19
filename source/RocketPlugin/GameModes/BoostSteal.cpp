@@ -2,7 +2,7 @@
 // A boost stealing game mode for Rocket Plugin.
 //
 // Author:        Stanbroek
-// Version:       0.1.0 24/12/20
+// Version:       0.1.1 15/08/21
 // BMSDK version: 95
 
 #include "BoostSteal.h"
@@ -27,7 +27,8 @@ bool BoostSteal::IsActive()
 void BoostSteal::Activate(const bool active)
 {
     if (active && !isActive) {
-        HookEventWithCaller<CarWrapper>("Function TAGame.Car_TA.Demolish",
+        HookEventWithCaller<CarWrapper>(
+            "Function TAGame.Car_TA.Demolish",
             [this](const CarWrapper& car, void* params, const std::string&) {
                 stealBoost(car, params);
             });

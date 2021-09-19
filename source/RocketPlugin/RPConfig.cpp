@@ -1,4 +1,10 @@
-#include "Config.h"
+// RPConfig.cpp
+// Online config for Rocket Plugin.
+//
+// Author:        Stanbroek
+// Version:       0.6.8 18/09/21
+// BMSDK version: 95
+#include "RPConfig.h"
 
 #include "GameModes/CrazyRumble.h"
 
@@ -6,7 +12,7 @@ constexpr int HttpStatusCodeSuccessOk = 200;
 
 
 /// <summary>Waits until all request are finished.</summary>
-Config::~Config()
+BaseConfig::~BaseConfig()
 {
     for (const auto& [url, request] : activeRequests) {
         if (request.valid()) {
@@ -20,38 +26,40 @@ Config::~Config()
 /// <param name="url">Url to send a http request to</param>
 /// <param name="timeout">Timeout for the http request, HttpWrapper has a timeout of 3s</param>
 /// <returns>Future with the http request response</returns>
-std::shared_future<std::pair<bool, std::string>> Config::Request(const std::string& url, std::chrono::seconds timeout)
+std::shared_future<std::pair<bool, std::string>> BaseConfig::Request(const std::string& url,
+    std::chrono::seconds timeout)
 {
-    TRACE_LOG(quote(url));
+    BM_TRACE_LOG(quote(url));
     if (const auto& it = activeRequests.find(url); it != activeRequests.end()) {
         return it->second;
     }
 
-    std::shared_future<std::pair<bool, std::string>> future = std::async([this, url, timeout]() {
-        std::mutex mutex;
-        std::condition_variable condVar;
-        std::pair<bool, std::string> response;
+    std::shared_future<std::pair<bool, std::string>> future = save_promise<std::pair<bool, std::string>>("",
+        [this, url, timeout]() {
+            std::mutex                   mutex;
+            std::condition_variable      condVar;
+            std::pair<bool, std::string> response;
 
-        CurlRequest request;
-        request.url = url;
-        HttpWrapper::SendCurlJsonRequest(request,
-            [this, &response, &condVar](const int httpStatusCode, const std::string& data) {
-                TRACE_LOG("{}", httpStatusCode);
-                response = std::pair(httpStatusCode == HttpStatusCodeSuccessOk, data);
-                condVar.notify_all();
-            });
+            CurlRequest request;
+            request.url = url;
+            HttpWrapper::SendCurlJsonRequest(
+                request, [this, &response, &condVar](const int httpStatusCode, const std::string& data) {
+                    BM_TRACE_LOG("{:d}", httpStatusCode);
+                    response = std::pair(httpStatusCode == HttpStatusCodeSuccessOk, data);
+                    condVar.notify_all();
+                });
 
-        // Because we do not own the object that holds our callback, so we have to wait until it is finished.
-        // But if the request errors, we will never hear about it, so we also set a timeout and cross our fingers.
-        std::unique_lock<std::mutex> lock(mutex);
-        const std::cv_status status = condVar.wait_for(lock, timeout);
-        if (status == std::cv_status::timeout) {
-            ERROR_LOG("request to {} timed out", quote(url));
-            return std::pair(false, std::string());
-        }
+            // Because we do not own the object that holds our callback, so we have to wait until it is finished.
+            // But if the request errors, we will never hear about it, so we also set a timeout and cross our fingers.
+            std::unique_lock<std::mutex> lock(mutex);
+            const std::cv_status status = condVar.wait_for(lock, timeout);
+            if (status == std::cv_status::timeout) {
+                BM_ERROR_LOG("request to {:s} timed out", quote(url));
+                return std::pair(false, std::string());
+            }
 
-        return response;
-    }).share();
+            return response;
+        }).share();
 
     activeRequests[url] = future;
 
@@ -65,30 +73,28 @@ std::shared_future<std::pair<bool, std::string>> Config::Request(const std::stri
 /// <returns>Bool with if the game settings where parsed successfully</returns>
 bool RPConfig::ParseGameSettings(const std::string& data, RocketPlugin* rocketPlugin)
 {
-    simdjson::ondemand::parser parser;
+    simdjson::ondemand::parser    parser;
     const simdjson::padded_string paddedData = data;
-    simdjson::ondemand::document doc = parser.iterate(paddedData);
+    simdjson::ondemand::document  doc        = parser.iterate(paddedData);
 
     try {
         parseGameModes(doc, rocketPlugin->gameModes);
         parseBotDifficulties(doc, rocketPlugin->botDifficulties);
         parseAvailableMaps(doc, rocketPlugin->maps);
-        parseAvailableColors(doc, rocketPlugin->customColorHues, rocketPlugin->customColors,
-                             rocketPlugin->clubColorHues, rocketPlugin->clubColors,
-                             rocketPlugin->defaultBluePrimaryColor, rocketPlugin->defaultBlueAccentColor,
-                             rocketPlugin->defaultOrangePrimaryColor, rocketPlugin->defaultOrangeAccentColor);
+        parseAvailableColors(
+            doc, rocketPlugin->customColorHues, rocketPlugin->customColors, rocketPlugin->clubColorHues,
+            rocketPlugin->clubColors, rocketPlugin->defaultBluePrimaryColor, rocketPlugin->defaultBlueAccentColor,
+            rocketPlugin->defaultOrangePrimaryColor, rocketPlugin->defaultOrangeAccentColor);
         parseAvailableMutators(doc, rocketPlugin->mutators);
     }
     catch (const simdjson::simdjson_error& e) {
-        CRITICAL_LOG("failed to parse game settings, {}", quote(e.what()));
+        BM_CRITICAL_LOG("failed to parse game settings, {:s}", quote(e.what()));
         return false;
-    }
-    catch (const std::exception& e) {
-        CRITICAL_LOG("failed to parse game settings, {}", quote(e.what()));
+    } catch (const std::exception& e) {
+        BM_CRITICAL_LOG("failed to parse game settings, {:s}", quote(e.what()));
         return false;
-    }
-    catch (...) {
-        CRITICAL_LOG("failed to parse game settings");
+    } catch (...) {
+        BM_CRITICAL_LOG("failed to parse game settings");
         return false;
     }
 
@@ -113,7 +119,7 @@ std::future<std::pair<bool, std::string>> RPConfig::RequestGameSettingConstants(
     return std::async([this]() {
         if (gameSettingConstantsConfigUrl.empty()) {
             if (!requestConfig().get()) {
-                ERROR_LOG("config request failed");
+                BM_ERROR_LOG("config request failed");
                 return std::pair(false, std::string());
             }
         }
@@ -130,7 +136,7 @@ std::future<std::pair<bool, std::string>> RPConfig::RequestRumbleConstants()
     return std::async([this]() {
         if (rumbleConstantsConfigUrl.empty()) {
             if (!requestConfig().get()) {
-                ERROR_LOG("config request failed");
+                BM_ERROR_LOG("config request failed");
                 return std::pair(false, std::string());
             }
         }
@@ -146,7 +152,7 @@ std::future<std::pair<bool, std::string>> RPConfig::RequestRumbleConstants()
 RocketPlugin::GameSetting ParseGameSetting(simdjson::ondemand::object gameSettingJson)
 {
     RocketPlugin::GameSetting gameSetting;
-    gameSetting.DisplayCategoryName = std::string_view(gameSettingJson["DisplayCategoryName"]);
+    gameSetting.DisplayCategoryName  = std::string_view(gameSettingJson["DisplayCategoryName"]);
     gameSetting.InternalCategoryName = std::string_view(gameSettingJson["InternalCategoryName"]);
     for (simdjson::ondemand::value name : gameSettingJson["DisplayName"].get_array()) {
         gameSetting.DisplayName.emplace_back(std::string_view(name));
@@ -217,9 +223,8 @@ ImVec4 ParseColor(simdjson::ondemand::array arr)
 /// <param name="orangePrimaryColor">Color to save the parsed orange primary color to</param>
 /// <param name="orangeAccentColor">Color to save the parsed orange accent color to</param>
 void RPConfig::parseAvailableColors(simdjson::ondemand::document& doc, int& customColorHues,
-                                    std::vector<ImVec4>& customColors, int& clubColorHues,
-                                    std::vector<ImVec4>& clubColors, ImVec4& bluePrimaryColor, ImVec4& blueAccentColor,
-                                    ImVec4& orangePrimaryColor, ImVec4& orangeAccentColor)
+    std::vector<ImVec4>& customColors, int& clubColorHues, std::vector<ImVec4>& clubColors, ImVec4& bluePrimaryColor,
+    ImVec4& blueAccentColor, ImVec4& orangePrimaryColor, ImVec4& orangeAccentColor)
 {
     customColorHues = static_cast<int>(doc["CustomColorHues"].get_uint64());
     customColors.clear();
@@ -232,10 +237,10 @@ void RPConfig::parseAvailableColors(simdjson::ondemand::document& doc, int& cust
         clubColors.push_back(ParseColor(value));
     }
 
-    bluePrimaryColor = ParseColor(doc["DefaultBluePrimaryColor"]);
-    blueAccentColor = ParseColor(doc["DefaultBlueAccentColor"]);
+    bluePrimaryColor   = ParseColor(doc["DefaultBluePrimaryColor"]);
+    blueAccentColor    = ParseColor(doc["DefaultBlueAccentColor"]);
     orangePrimaryColor = ParseColor(doc["DefaultOrangePrimaryColor"]);
-    orangeAccentColor = ParseColor(doc["DefaultOrangeAccentColor"]);
+    orangeAccentColor  = ParseColor(doc["DefaultOrangeAccentColor"]);
 }
 
 
@@ -243,7 +248,7 @@ void RPConfig::parseAvailableColors(simdjson::ondemand::document& doc, int& cust
 /// <param name="doc">Json object with available mutators</param>
 /// <param name="mutators">Vector to save the parsed available mutators to</param>
 void RPConfig::parseAvailableMutators(simdjson::ondemand::document& doc,
-                                      std::vector<RocketPlugin::GameSetting>& mutators)
+    std::vector<RocketPlugin::GameSetting>& mutators)
 {
     mutators.clear();
     for (simdjson::ondemand::value value : doc["Mutators"]) {
@@ -256,10 +261,10 @@ void RPConfig::parseAvailableMutators(simdjson::ondemand::document& doc,
 /// <returns>Future with if the request was successful</returns>
 std::future<bool> RPConfig::requestConfig()
 {
-    return std::async([this]() {
+    return save_promise<bool>("", [this]() {
         const auto& [requestSuccessful, responseData] = Request(configUrl).get();
         if (!requestSuccessful) {
-            ERROR_LOG("config request failed");
+            BM_ERROR_LOG("config request failed");
             return false;
         }
 
@@ -271,7 +276,7 @@ std::future<bool> RPConfig::requestConfig()
         simdjson::error_code error = dom["RLConstants"].get(strView);
         if (error) {
             failed = true;
-            ERROR_LOG("could not get RLConstants, {}", simdjson::error_message(error));
+            BM_ERROR_LOG("could not get RLConstants, {:s}", simdjson::error_message(error));
         }
         else {
             gameSettingConstantsConfigUrl = strView;
@@ -280,7 +285,7 @@ std::future<bool> RPConfig::requestConfig()
         error = dom["RumbleConstants"].get(strView);
         if (error) {
             failed = true;
-            ERROR_LOG("could not get RumbleConstants, {}", simdjson::error_message(error));
+            BM_ERROR_LOG("could not get RumbleConstants, {:s}", simdjson::error_message(error));
         }
         else {
             rumbleConstantsConfigUrl = strView;

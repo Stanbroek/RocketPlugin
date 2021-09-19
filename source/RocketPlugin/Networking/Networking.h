@@ -39,7 +39,7 @@ namespace Networking
     bool IsValidDomainName(const std::string& addr);
 
     std::error_code NetworkRequest(const std::string& host, unsigned short port, int protocol, const char* sendBuf,
-                                   size_t sendBufSize, char* recvBuf = nullptr, size_t recvBufSize = 0);
+        size_t sendBufSize, char* recvBuf = nullptr, size_t recvBufSize = 0);
     std::error_code GetInternalIPAddress(std::string& ipAddr);
     std::error_code GetExternalIPAddress(const std::string& host, std::string* ipAddr, bool threaded = false);
 
@@ -65,7 +65,7 @@ public:
     bool DiscoveryFinished() const { return discoveryStatus == DiscoveryStatus::DISCOVERY_FINISHED; }
 
     void ForwardPort(unsigned short internalPort, unsigned short externalPort, unsigned long portLeaseDuration,
-                     bool threaded = true);
+        bool threaded = true);
     std::string GetForwardPortStatus() const;
     bool ServiceForwardPortFailed() const { return addPortMappingStatus == ServiceStatus::SERVICE_ERROR; }
     bool ServiceForwardPortActive() const { return addPortMappingStatus == ServiceStatus::SERVICE_BUSY; }
@@ -105,7 +105,7 @@ private:
     void clearDevices();
 
     std::unique_ptr<JobQueue> discoverThread;
-    IUPnPService* gtoServices[2] = {nullptr, nullptr};
+    IUPnPService* gtoServices[2] = { nullptr, nullptr };
     IUPnPDevice* gtoDevice = nullptr;
     std::string deviceFriendlyName;
 

@@ -1,8 +1,8 @@
 // UPnPClient.cpp
-// UPnP port forwarding for the RocketPlugin plugin.
+// UPnP port forwarding for Rocket Plugin.
 //
 // Author:       Stanbroek
-// Version:      0.6.5 05/02/21
+// Version:      0.6.8 18/09/21
 //
 // References:
 //  https://tools.ietf.org/html/rfc6970
@@ -55,8 +55,7 @@ std::string FormatHResult(const HRESULT hResult)
     }
 
     char errorBuf[1024];
-    DWORD length = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, nullptr,
-        hResult, 0, errorBuf, sizeof errorBuf, nullptr);
+    DWORD length = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, nullptr, hResult, 0, errorBuf, sizeof errorBuf, nullptr);
     if (length == 0) {
         return "Unknown error: (" + to_hex(hResult) + ", " + to_hex(GetLastError()) + ")";
     }
@@ -78,7 +77,7 @@ std::string FormatHResult(const HRESULT hResult)
 /// <param name="saveServices">Whether it should look for the port forward services</param>
 /// <returns>Error code</returns>
 HRESULT TraverseServiceCollection(IUPnPServices* pusServices, IUPnPService* gtoServices[2], bool* gtoFound,
-                                  const bool saveServices = false)
+    const bool saveServices = false)
 {
     bool shouldRelease = true;
     IUnknown* pUnk = nullptr;
@@ -98,10 +97,10 @@ HRESULT TraverseServiceCollection(IUPnPServices* pusServices, IUPnPService* gtoS
                 if (SUCCEEDED(hr)) {
                     BSTR bstrServiceTypeIdentifier = nullptr;
                     if (SUCCEEDED(pService->get_ServiceTypeIdentifier(&bstrServiceTypeIdentifier))) {
-                        TRACE_LOG("found {}", quote(to_string(bstrServiceTypeIdentifier)));
+                        BM_TRACE_LOG("found {:s}", quote(to_string(bstrServiceTypeIdentifier)));
                         if (saveServices) {
                             if (COMPARE(bstrServiceTypeIdentifier, UPNP_WAN_IP_CONNECTION)) {
-                                TRACE_LOG("Found UPNP_WAN_IP_CONNECTION");
+                                BM_TRACE_LOG("Found UPNP_WAN_IP_CONNECTION");
                                 if (gtoServices[0] == nullptr) {
                                     gtoServices[0] = pService;
                                 }
@@ -111,7 +110,7 @@ HRESULT TraverseServiceCollection(IUPnPServices* pusServices, IUPnPService* gtoS
                                 shouldRelease = false;
                             }
                             if (COMPARE(bstrServiceTypeIdentifier, UPNP_WAN_PPP_CONNECTION)) {
-                                TRACE_LOG("Found UPNP_WAN_PPP_CONNECTION");
+                                BM_TRACE_LOG("Found UPNP_WAN_PPP_CONNECTION");
                                 if (gtoServices[0] == nullptr) {
                                     gtoServices[0] = pService;
                                 }
@@ -123,7 +122,7 @@ HRESULT TraverseServiceCollection(IUPnPServices* pusServices, IUPnPService* gtoS
                         }
                         else {
                             if (COMPARE(bstrServiceTypeIdentifier, UPNP_WAN_COMMON_INTERFACE_CONFIG)) {
-                                TRACE_LOG("Found UPNP_WAN_COMMON_INTERFACE_CONFIG");
+                                BM_TRACE_LOG("Found UPNP_WAN_COMMON_INTERFACE_CONFIG");
                                 *gtoFound = true;
                             }
                         }
@@ -131,11 +130,11 @@ HRESULT TraverseServiceCollection(IUPnPServices* pusServices, IUPnPService* gtoS
                         SysFreeString(bstrServiceTypeIdentifier);
                     }
                     else {
-                        ERROR_LOG("failed to get the service type identifier: {}", quote(FormatHResult(hr)));
+                        BM_ERROR_LOG("failed to get the service type identifier: {:s}", quote(FormatHResult(hr)));
                     }
                 }
                 else {
-                    ERROR_LOG("failed to query the UPnP service: {}", quote(FormatHResult(hr)));
+                    BM_ERROR_LOG("failed to query the UPnP service: {:s}", quote(FormatHResult(hr)));
                 }
                 VariantClear(&varCurService);
                 if (shouldRelease) {
@@ -146,12 +145,12 @@ HRESULT TraverseServiceCollection(IUPnPServices* pusServices, IUPnPService* gtoS
 
         }
         else {
-            ERROR_LOG("failed to query the enum variant: {}", quote(FormatHResult(hr)));
+            BM_ERROR_LOG("failed to query the enum variant: {:s}", quote(FormatHResult(hr)));
         }
         pUnk->Release();
     }
     else {
-        ERROR_LOG("failed to receives a reference to the enumerator interface: {}", quote(FormatHResult(hr)));
+        BM_ERROR_LOG("failed to receives a reference to the enumerator interface: {:s}", quote(FormatHResult(hr)));
     }
 
     return hr;
@@ -166,10 +165,10 @@ HRESULT TraverseServiceCollection(IUPnPServices* pusServices, IUPnPService* gtoS
 /// <param name="saveDevice">Whether it should look for the port forward services</param>
 /// <returns>Error code</returns>
 HRESULT TraverseDeviceCollection(IUPnPDevices* pDevices, IUPnPDevice** gtoDevice, IUPnPService* gtoServices[2],
-                                 unsigned int depth = 0, bool saveDevice = false)
+    unsigned int depth = 0, bool saveDevice = false)
 {
     if (depth >= MAX_DEVICE_CHILD_DEPTH) {
-        WARNING_LOG("reached max device child depth");
+        BM_WARNING_LOG("reached max device child depth");
         return S_OK;
     }
 
@@ -200,7 +199,7 @@ HRESULT TraverseDeviceCollection(IUPnPDevices* pDevices, IUPnPDevice** gtoDevice
 #ifdef DEBUG
                                     BSTR bstrFriendlyName = nullptr;
                                     if (SUCCEEDED(pParentDevice->get_FriendlyName(&bstrFriendlyName))) {
-                                        TRACE_LOG("found {}", quote(to_string(bstrFriendlyName)));
+                                        BM_TRACE_LOG("found {:s}", quote(to_string(bstrFriendlyName)));
                                         SysFreeString(bstrFriendlyName);
                                     }
 #endif
@@ -210,7 +209,8 @@ HRESULT TraverseDeviceCollection(IUPnPDevices* pDevices, IUPnPDevice** gtoDevice
                                         TraverseServiceCollection(pusParentsServices, gtoServices, &gtoFound);
                                     }
                                     else {
-                                        ERROR_LOG("failed to get the parent device services: {}", quote(FormatHResult(hr)));
+                                        BM_ERROR_LOG(
+                                            "failed to get the parent device services: {:s}", quote(FormatHResult(hr)));
                                     }
                                     if (gtoFound) {
                                         saveDevice = true;
@@ -219,18 +219,18 @@ HRESULT TraverseDeviceCollection(IUPnPDevices* pDevices, IUPnPDevice** gtoDevice
                                     pParentDevice->Release();
                                 }
                                 else {
-                                    ERROR_LOG("failed to get the parent device: {}", quote(FormatHResult(hr)));
+                                    BM_ERROR_LOG("failed to get the parent device: {:s}", quote(FormatHResult(hr)));
                                 }
                             }
                         }
                         else {
-                            ERROR_LOG("failed to get if device is a root device: {}", quote(FormatHResult(hr)));
+                            BM_ERROR_LOG("failed to get if device is a root device: {:s}", quote(FormatHResult(hr)));
                         }
                     }
 #ifdef DEBUG
                     BSTR bstrFriendlyName = nullptr;
                     if (SUCCEEDED(pDevice->get_FriendlyName(&bstrFriendlyName))) {
-                        TRACE_LOG("found {}", quote(to_string(bstrFriendlyName)));
+                        BM_TRACE_LOG("found {:s}", quote(to_string(bstrFriendlyName)));
                         SysFreeString(bstrFriendlyName);
                     }
 #endif
@@ -240,7 +240,7 @@ HRESULT TraverseDeviceCollection(IUPnPDevices* pDevices, IUPnPDevice** gtoDevice
                         hr = TraverseServiceCollection(pusServices, gtoServices, &gtoFound, saveDevice);
                     }
                     else {
-                        ERROR_LOG("failed to get the services: {}", quote(FormatHResult(hr)));
+                        BM_ERROR_LOG("failed to get the services: {:s}", quote(FormatHResult(hr)));
                     }
 
                     if (depth != 0 || gtoFound) {
@@ -251,21 +251,21 @@ HRESULT TraverseDeviceCollection(IUPnPDevices* pDevices, IUPnPDevice** gtoDevice
                                 IUPnPDevices* pDevicesChildren = nullptr;
                                 hr = pDevice->get_Children(&pDevicesChildren);
                                 if (SUCCEEDED(hr)) {
-                                    hr = TraverseDeviceCollection(pDevicesChildren, gtoDevice, gtoServices, ++depth,
-                                        gtoFound);
+                                    hr = TraverseDeviceCollection(
+                                        pDevicesChildren, gtoDevice, gtoServices, ++depth, gtoFound);
                                 }
                                 else {
-                                    ERROR_LOG("failed to get the children: {}", quote(FormatHResult(hr)));
+                                    BM_ERROR_LOG("failed to get the children: {:s}", quote(FormatHResult(hr)));
                                 }
                             }
                         }
                         else {
-                            ERROR_LOG("failed to get if device has any children: {}", quote(FormatHResult(hr)));
+                            BM_ERROR_LOG("failed to get if device has any children: {:s}", quote(FormatHResult(hr)));
                         }
                     }
                 }
                 else {
-                    ERROR_LOG("failed to query the UPnP device: {}", quote(FormatHResult(hr)));
+                    BM_ERROR_LOG("failed to query the UPnP device: {:s}", quote(FormatHResult(hr)));
                 }
                 VariantClear(&varCurDevice);
                 if (!saveDevice) {
@@ -279,12 +279,12 @@ HRESULT TraverseDeviceCollection(IUPnPDevices* pDevices, IUPnPDevice** gtoDevice
             pEnumVar->Release();
         }
         else {
-            ERROR_LOG("failed to query the enum variant: {}", quote(FormatHResult(hr)));
+            BM_ERROR_LOG("failed to query the enum variant: {:s}", quote(FormatHResult(hr)));
         }
         pUnk->Release();
     }
     else {
-        ERROR_LOG("failed to receives a reference to the enumerator interface: {}", quote(FormatHResult(hr)));
+        BM_ERROR_LOG("failed to receives a reference to the enumerator interface: {:s}", quote(FormatHResult(hr)));
     }
 
     return hr;
@@ -298,10 +298,11 @@ void UPnPClient::discoverDevices(const std::wstring& typeUri)
     BSTR typeUriBStr = SysAllocString(typeUri.c_str());
     IUPnPDevices* pDevices = nullptr;
     IUPnPDeviceFinder* pUPnPDeviceFinder = nullptr;
-    HRESULT hResult = CoCreateInstance(CLSID_UPnPDeviceFinder, nullptr, CLSCTX_INPROC_SERVER,
-        IID_IUPnPDeviceFinder, reinterpret_cast<void**>(&pUPnPDeviceFinder));
+    HRESULT hResult = CoCreateInstance(
+        CLSID_UPnPDeviceFinder, nullptr, CLSCTX_INPROC_SERVER, IID_IUPnPDeviceFinder,
+        reinterpret_cast<void**>(&pUPnPDeviceFinder));
     if (FAILED(hResult)) {
-        ERROR_LOG("failed to create a UPnP device finder: {}", quote(FormatHResult(hResult)));
+        BM_ERROR_LOG("failed to create a UPnP device finder: {:s}", quote(FormatHResult(hResult)));
         return;
     }
 
@@ -313,11 +314,11 @@ void UPnPClient::discoverDevices(const std::wstring& typeUri)
             hResult = TraverseDeviceCollection(pDevices, &gtoDevice, gtoServices);
         }
         else {
-            ERROR_LOG("failed to get the device count: {}", quote(FormatHResult(hResult)));
+            BM_ERROR_LOG("failed to get the device count: {:s}", quote(FormatHResult(hResult)));
         }
     }
     else {
-        ERROR_LOG("failed to find any {} devices: {}", quote(to_string(typeUri)), quote(FormatHResult(hResult)));
+        BM_ERROR_LOG("failed to find any {:s} devices: {:s}", quote(to_string(typeUri)), quote(FormatHResult(hResult)));
     }
     pUPnPDeviceFinder->Release();
     SysFreeString(typeUriBStr);
@@ -340,17 +341,16 @@ void UPnPClient::discoverDevices(const std::wstring& typeUri)
 /// <param name="outPortMappingLeaseDuration">Port mapping lease duration in seconds</param>
 /// <returns>Error code</returns>
 HRESULT GetGenericPortMappingEntry(IUPnPService* gtoService, std::string& returnStatus,
-                                   USHORT inPortMappingNumberOfEntries, BSTR* outRemoteHost, USHORT* outExternalPort,
-                                   BSTR* outPortMappingProtocol, USHORT* outInternalPort, BSTR* outInternalClient,
-                                   VARIANT_BOOL* outPortMappingEnabled, BSTR* outPortMappingDescription,
-                                   ULONG* outPortMappingLeaseDuration)
+    USHORT inPortMappingNumberOfEntries, BSTR* outRemoteHost, USHORT* outExternalPort, BSTR* outPortMappingProtocol,
+    USHORT* outInternalPort, BSTR* outInternalClient, VARIANT_BOOL* outPortMappingEnabled,
+    BSTR* outPortMappingDescription, ULONG* outPortMappingLeaseDuration)
 {
     HRESULT        hr             = S_OK;
     BSTR           bstrActionName = SysAllocString(L"GetGenericPortMappingEntry");
     SAFEARRAYBOUND inArgsBound[1];
     SAFEARRAY*     psaInArgs    = nullptr;
     SAFEARRAY*     psaOutArgs   = nullptr;
-    LONG           rgIndices[1] = {0};
+    LONG           rgIndices[1] = { 0 };
     VARIANT        varInArgs;
     VARIANT        varOutArgs;
     VARIANT        varRet;
@@ -388,10 +388,10 @@ HRESULT GetGenericPortMappingEntry(IUPnPService* gtoService, std::string& return
 
         if (varRet.vt == VT_BSTR) {
             returnStatus = to_string(varRet.bstrVal);
-            TRACE_LOG("returned {}", quote(returnStatus));
+            BM_TRACE_LOG("returned {:s}", quote(returnStatus));
         }
         else if (varRet.vt != VT_EMPTY) {
-            TRACE_LOG("returned {:#X}", varRet.vt);
+            BM_TRACE_LOG("returned {:#X}", varRet.vt);
         }
     }
 
@@ -401,7 +401,7 @@ HRESULT GetGenericPortMappingEntry(IUPnPService* gtoService, std::string& return
         psaOutArgs = V_ARRAY(&varOutArgs);
 
         rgIndices[0] = 0;
-        hr = SafeArrayGetElement(psaOutArgs, rgIndices, static_cast<void*>(&varTemp));
+        hr = SafeArrayGetElement(psaOutArgs, rgIndices, &varTemp);
 
         if (SUCCEEDED(hr) && varTemp.vt == VT_BSTR) {
             *outRemoteHost = varTemp.bstrVal;
@@ -409,7 +409,7 @@ HRESULT GetGenericPortMappingEntry(IUPnPService* gtoService, std::string& return
 
         if (SUCCEEDED(hr)) {
             rgIndices[0] = 1;
-            hr = SafeArrayGetElement(psaOutArgs, rgIndices, static_cast<void*>(&varTemp));
+            hr = SafeArrayGetElement(psaOutArgs, rgIndices, &varTemp);
             if (SUCCEEDED(hr) && varTemp.vt == VT_UI2) {
                 *outExternalPort = varTemp.uiVal;
             }
@@ -417,7 +417,7 @@ HRESULT GetGenericPortMappingEntry(IUPnPService* gtoService, std::string& return
 
         if (SUCCEEDED(hr)) {
             rgIndices[0] = 2;
-            hr = SafeArrayGetElement(psaOutArgs, rgIndices, static_cast<void*>(&varTemp));
+            hr = SafeArrayGetElement(psaOutArgs, rgIndices, &varTemp);
             if (SUCCEEDED(hr) && varTemp.vt == VT_BSTR) {
                 *outPortMappingProtocol = varTemp.bstrVal;
             }
@@ -425,7 +425,7 @@ HRESULT GetGenericPortMappingEntry(IUPnPService* gtoService, std::string& return
 
         if (SUCCEEDED(hr)) {
             rgIndices[0] = 3;
-            hr = SafeArrayGetElement(psaOutArgs, rgIndices, static_cast<void*>(&varTemp));
+            hr = SafeArrayGetElement(psaOutArgs, rgIndices, &varTemp);
             if (SUCCEEDED(hr) && varTemp.vt == VT_UI2) {
                 *outInternalPort = varTemp.uiVal;
             }
@@ -433,7 +433,7 @@ HRESULT GetGenericPortMappingEntry(IUPnPService* gtoService, std::string& return
 
         if (SUCCEEDED(hr)) {
             rgIndices[0] = 4;
-            hr = SafeArrayGetElement(psaOutArgs, rgIndices, static_cast<void*>(&varTemp));
+            hr = SafeArrayGetElement(psaOutArgs, rgIndices, &varTemp);
             if (SUCCEEDED(hr) && varTemp.vt == VT_BSTR) {
                 *outInternalClient = varTemp.bstrVal;
             }
@@ -441,7 +441,7 @@ HRESULT GetGenericPortMappingEntry(IUPnPService* gtoService, std::string& return
 
         if (SUCCEEDED(hr)) {
             rgIndices[0] = 5;
-            hr = SafeArrayGetElement(psaOutArgs, rgIndices, static_cast<void*>(&varTemp));
+            hr = SafeArrayGetElement(psaOutArgs, rgIndices, &varTemp);
             if (SUCCEEDED(hr) && varTemp.vt == VT_BOOL) {
                 *outPortMappingEnabled = varTemp.boolVal;
             }
@@ -449,7 +449,7 @@ HRESULT GetGenericPortMappingEntry(IUPnPService* gtoService, std::string& return
 
         if (SUCCEEDED(hr)) {
             rgIndices[0] = 6;
-            hr = SafeArrayGetElement(psaOutArgs, rgIndices, static_cast<void*>(&varTemp));
+            hr = SafeArrayGetElement(psaOutArgs, rgIndices, &varTemp);
             if (SUCCEEDED(hr) && varTemp.vt == VT_BSTR) {
                 *outPortMappingDescription = varTemp.bstrVal;
             }
@@ -457,7 +457,7 @@ HRESULT GetGenericPortMappingEntry(IUPnPService* gtoService, std::string& return
 
         if (SUCCEEDED(hr)) {
             rgIndices[0] = 7;
-            hr = SafeArrayGetElement(psaOutArgs, rgIndices, static_cast<void*>(&varTemp));
+            hr = SafeArrayGetElement(psaOutArgs, rgIndices, &varTemp);
             if (SUCCEEDED(hr) && varTemp.vt == VT_UI4) {
                 *outPortMappingLeaseDuration = varTemp.ulVal;
             }
@@ -498,16 +498,15 @@ HRESULT GetGenericPortMappingEntry(IUPnPService* gtoService, std::string& return
 /// <param name="outPortMappingLeaseDuration">Port mapping lease duration in seconds</param>
 /// <returns>Error code</returns>
 HRESULT GetSpecificPortMappingEntry(IUPnPService* gtoService, std::string& returnStatus, BSTR inRemoteHost,
-                                    USHORT inExternalPort, BSTR inPortMappingProtocol, USHORT* outInternalPort,
-                                    BSTR* outInternalClient, VARIANT_BOOL* outPortMappingEnabled,
-                                    BSTR* outPortMappingDescription, ULONG* outPortMappingLeaseDuration)
+    USHORT inExternalPort, BSTR inPortMappingProtocol, USHORT* outInternalPort, BSTR* outInternalClient,
+    VARIANT_BOOL* outPortMappingEnabled, BSTR* outPortMappingDescription, ULONG* outPortMappingLeaseDuration)
 {
     HRESULT        hr             = S_OK;
     BSTR           bstrActionName = SysAllocString(L"GetSpecificPortMappingEntry");
     SAFEARRAYBOUND inArgsBound[1];
     SAFEARRAY*     psaInArgs    = nullptr;
     SAFEARRAY*     psaOutArgs   = nullptr;
-    LONG           rgIndices[1] = {0};
+    LONG           rgIndices[1] = { 0 };
     VARIANT        varInArgs;
     VARIANT        varOutArgs;
     VARIANT        varRet;
@@ -557,10 +556,10 @@ HRESULT GetSpecificPortMappingEntry(IUPnPService* gtoService, std::string& retur
 
         if (varRet.vt == VT_BSTR) {
             returnStatus = to_string(varRet.bstrVal);
-            TRACE_LOG("returned {}", quote(returnStatus));
+            BM_TRACE_LOG("returned {:s}", quote(returnStatus));
         }
         else if (varRet.vt != VT_EMPTY) {
-            TRACE_LOG("returned {:#X}", varRet.vt);
+            BM_TRACE_LOG("returned {:#X}", varRet.vt);
         }
     }
 
@@ -570,14 +569,14 @@ HRESULT GetSpecificPortMappingEntry(IUPnPService* gtoService, std::string& retur
         psaOutArgs = V_ARRAY(&varOutArgs);
 
         rgIndices[0] = 0;
-        hr = SafeArrayGetElement(psaOutArgs, rgIndices, static_cast<void*>(&varTemp));
+        hr = SafeArrayGetElement(psaOutArgs, rgIndices, &varTemp);
         if (SUCCEEDED(hr)) {
             *outInternalPort = varTemp.uiVal;
         }
 
         if (SUCCEEDED(hr)) {
             rgIndices[0] = 1;
-            hr = SafeArrayGetElement(psaOutArgs, rgIndices, static_cast<void*>(&varTemp));
+            hr = SafeArrayGetElement(psaOutArgs, rgIndices, &varTemp);
             if (SUCCEEDED(hr)) {
                 *outInternalClient = varTemp.bstrVal;
             }
@@ -585,7 +584,7 @@ HRESULT GetSpecificPortMappingEntry(IUPnPService* gtoService, std::string& retur
 
         if (SUCCEEDED(hr)) {
             rgIndices[0] = 2;
-            hr = SafeArrayGetElement(psaOutArgs, rgIndices, static_cast<void*>(&varTemp));
+            hr = SafeArrayGetElement(psaOutArgs, rgIndices, &varTemp);
             if (SUCCEEDED(hr)) {
                 *outPortMappingEnabled = varTemp.boolVal;
             }
@@ -593,7 +592,7 @@ HRESULT GetSpecificPortMappingEntry(IUPnPService* gtoService, std::string& retur
 
         if (SUCCEEDED(hr)) {
             rgIndices[0] = 3;
-            hr = SafeArrayGetElement(psaOutArgs, rgIndices, static_cast<void*>(&varTemp));
+            hr = SafeArrayGetElement(psaOutArgs, rgIndices, &varTemp);
             if (SUCCEEDED(hr)) {
                 *outPortMappingDescription = varTemp.bstrVal;
             }
@@ -601,7 +600,7 @@ HRESULT GetSpecificPortMappingEntry(IUPnPService* gtoService, std::string& retur
 
         if (SUCCEEDED(hr)) {
             rgIndices[0] = 4;
-            hr = SafeArrayGetElement(psaOutArgs, rgIndices, static_cast<void*>(&varTemp));
+            hr = SafeArrayGetElement(psaOutArgs, rgIndices, &varTemp);
             if (SUCCEEDED(hr)) {
                 *outPortMappingLeaseDuration = varTemp.ulVal;
             }
@@ -644,16 +643,15 @@ HRESULT GetSpecificPortMappingEntry(IUPnPService* gtoService, std::string& retur
 /// <param name="inPortMappingLeaseDuration">Port mapping lease duration in seconds</param>
 /// <returns>Error code</returns>
 HRESULT AddPortMapping(IUPnPService* gtoService, std::string& returnStatus, BSTR inRemoteHost, USHORT inExternalPort,
-                       BSTR inPortMappingProtocol, USHORT inInternalPort, BSTR inInternalClient,
-                       VARIANT_BOOL inPortMappingEnabled, BSTR inPortMappingDescription,
-                       ULONG inPortMappingLeaseDuration)
+    BSTR inPortMappingProtocol, USHORT inInternalPort, BSTR inInternalClient, VARIANT_BOOL inPortMappingEnabled,
+    BSTR inPortMappingDescription, ULONG inPortMappingLeaseDuration)
 {
-    HRESULT hr          = S_OK;
-    BSTR bstrActionName = SysAllocString(L"AddPortMapping");
+    HRESULT        hr             = S_OK;
+    BSTR           bstrActionName = SysAllocString(L"AddPortMapping");
     SAFEARRAYBOUND inArgsBound[1];
     SAFEARRAY*     psaInArgs    = nullptr;
     SAFEARRAY*     psaOutArgs   = nullptr;
-    LONG           rgIndices[1] = {0};
+    LONG           rgIndices[1] = { 0 };
     VARIANT        varInArgs;
     VARIANT        varOutArgs;
     VARIANT        varRet;
@@ -733,10 +731,10 @@ HRESULT AddPortMapping(IUPnPService* gtoService, std::string& returnStatus, BSTR
 
         if (varRet.vt == VT_BSTR) {
             returnStatus = to_string(varRet.bstrVal);
-            TRACE_LOG("returned {}", quote(returnStatus));
+            BM_TRACE_LOG("returned {:s}", quote(returnStatus));
         }
         else if (varRet.vt != VT_EMPTY) {
-            TRACE_LOG("returned {:#X}", varRet.vt);
+            BM_TRACE_LOG("returned {:#X}", varRet.vt);
         }
     }
 
@@ -782,14 +780,14 @@ HRESULT AddPortMapping(IUPnPService* gtoService, std::string& returnStatus, BSTR
 /// <param name="inPortMappingProtocol">Port mapping protocol</param>
 /// <returns>Error code</returns>
 HRESULT DeletePortMapping(IUPnPService* gtoService, std::string& returnStatus, BSTR inRemoteHost, USHORT inExternalPort,
-                          BSTR inPortMappingProtocol)
+    BSTR inPortMappingProtocol)
 {
-    HRESULT hr          = S_OK;
-    BSTR bstrActionName = SysAllocString(L"DeletePortMapping");
+    HRESULT        hr             = S_OK;
+    BSTR           bstrActionName = SysAllocString(L"DeletePortMapping");
     SAFEARRAYBOUND inArgsBound[1];
     SAFEARRAY*     psaInArgs    = nullptr;
     SAFEARRAY*     psaOutArgs   = nullptr;
-    LONG           rgIndices[1] = {0};
+    LONG           rgIndices[1] = { 0 };
     VARIANT        varInArgs;
     VARIANT        varOutArgs;
     VARIANT        varRet;
@@ -839,10 +837,10 @@ HRESULT DeletePortMapping(IUPnPService* gtoService, std::string& returnStatus, B
 
         if (varRet.vt == VT_BSTR) {
             returnStatus = to_string(varRet.bstrVal);
-            TRACE_LOG("returned {}", quote(returnStatus));
+            BM_TRACE_LOG("returned {:s}", quote(returnStatus));
         }
         else if (varRet.vt != VT_EMPTY) {
-            TRACE_LOG("returned {:#X}", varRet.vt);
+            BM_TRACE_LOG("returned {:#X}", varRet.vt);
         }
     }
 
@@ -882,12 +880,12 @@ HRESULT DeletePortMapping(IUPnPService* gtoService, std::string& returnStatus, B
 /// <returns>Error code</returns>
 HRESULT GetExternalIPAddress(IUPnPService* gtoService, std::string& returnStatus, BSTR* outExternalIPAddress)
 {
-    HRESULT hr          = S_OK;
-    BSTR bstrActionName = SysAllocString(L"GetExternalIPAddress");
+    HRESULT        hr             = S_OK;
+    BSTR           bstrActionName = SysAllocString(L"GetExternalIPAddress");
     SAFEARRAYBOUND inArgsBound[1];
     SAFEARRAY*     psaInArgs    = nullptr;
     SAFEARRAY*     psaOutArgs   = nullptr;
-    LONG           rgIndices[1] = {0};
+    LONG           rgIndices[1] = { 0 };
     VARIANT        varInArgs;
     VARIANT        varOutArgs;
     VARIANT        varRet;
@@ -918,10 +916,10 @@ HRESULT GetExternalIPAddress(IUPnPService* gtoService, std::string& returnStatus
 
         if (varRet.vt == VT_BSTR) {
             returnStatus = to_string(varRet.bstrVal);
-            TRACE_LOG("returned {}", quote(returnStatus));
+            BM_TRACE_LOG("returned {:s}", quote(returnStatus));
         }
         else if (varRet.vt != VT_EMPTY) {
-            TRACE_LOG("returned {:#X}", varRet.vt);
+            BM_TRACE_LOG("returned {:#X}", varRet.vt);
         }
     }
 
@@ -931,7 +929,7 @@ HRESULT GetExternalIPAddress(IUPnPService* gtoService, std::string& returnStatus
         psaOutArgs = V_ARRAY(&varOutArgs);
         rgIndices[0] = 0;
 
-        hr = SafeArrayGetElement(psaOutArgs, rgIndices, static_cast<void*>(&varTemp));
+        hr = SafeArrayGetElement(psaOutArgs, rgIndices, &varTemp);
         if (SUCCEEDED(hr)) {
             *outExternalIPAddress = varTemp.bstrVal;
         }
@@ -962,7 +960,7 @@ HRESULT GetExternalIPAddress(IUPnPService* gtoService, std::string& returnStatus
 /// <param name="portLeaseDuration">Time in seconds for the port to be opened</param>
 /// <param name="threaded">Whether the action should be executed on another thread</param>
 void UPnPClient::ForwardPort(const unsigned short internalPort, const unsigned short externalPort,
-                             const unsigned long portLeaseDuration, const bool threaded)
+    const unsigned long portLeaseDuration, const bool threaded)
 {
     if (threaded) {
         discoverThread->addJob([=]() {
@@ -982,19 +980,19 @@ void UPnPClient::ForwardPort(const unsigned short internalPort, const unsigned s
     VARIANT_BOOL inPortMappingEnabled       = VARIANT_TRUE;
     BSTR         inPortMappingDescription   = SysAllocString(L"RL port forward for local play");
     ULONG        inPortMappingLeaseDuration = portLeaseDuration;
-    HRESULT hResult = AddPortMapping(gtoServices[0], addPortMappingReturnStatus, inRemoteHost, inExternalPort,
-                                     inPortMappingProtocol, inInternalPort, inInternalClient, inPortMappingEnabled,
-                                     inPortMappingDescription, inPortMappingLeaseDuration);
+    HRESULT hResult = AddPortMapping(
+        gtoServices[0], addPortMappingReturnStatus, inRemoteHost, inExternalPort, inPortMappingProtocol, inInternalPort,
+        inInternalClient, inPortMappingEnabled, inPortMappingDescription, inPortMappingLeaseDuration);
     if (SUCCEEDED(hResult)) {
         USHORT       outInternalPort             = 0;
         BSTR         outInternalClient           = nullptr;
         VARIANT_BOOL outPortMappingEnabled       = VARIANT_FALSE;
         BSTR         outPortMappingDescription   = nullptr;
         ULONG        outPortMappingLeaseDuration = 0;
-        hResult = GetSpecificPortMappingEntry(gtoServices[0], deletePortMappingReturnStatus, inRemoteHost,
-                                              inExternalPort, inPortMappingProtocol, &outInternalPort,
-                                              &outInternalClient, &outPortMappingEnabled, &outPortMappingDescription,
-                                              &outPortMappingLeaseDuration);
+        hResult = GetSpecificPortMappingEntry(
+            gtoServices[0], deletePortMappingReturnStatus, inRemoteHost, inExternalPort, inPortMappingProtocol,
+            &outInternalPort, &outInternalClient, &outPortMappingEnabled, &outPortMappingDescription,
+            &outPortMappingLeaseDuration);
         if (SUCCEEDED(hResult)) {
             addPortMappingReturnStatus = std::to_string(externalPort) + " for " + internalIPAddress;
             addPortMappingStatus = ServiceStatus::SERVICE_UPDATED_PORT_MAPPING;
@@ -1040,8 +1038,8 @@ void UPnPClient::ClosePort(const unsigned short externalPort, const bool threade
     BSTR   inRemoteHost          = SysAllocString(L"");
     USHORT inExternalPort        = externalPort;
     BSTR   inPortMappingProtocol = SysAllocString(L"UDP");
-    HRESULT hResult = DeletePortMapping(gtoServices[0], deletePortMappingReturnStatus, inRemoteHost, inExternalPort,
-                                        inPortMappingProtocol);
+    HRESULT hResult = DeletePortMapping(
+        gtoServices[0], deletePortMappingReturnStatus, inRemoteHost, inExternalPort, inPortMappingProtocol);
     if (SUCCEEDED(hResult)) {
         deletePortMappingReturnStatus = std::to_string(externalPort) + " for " + internalIPAddress;
         deletePortMappingStatus = ServiceStatus::SERVICE_UPDATED_PORT_MAPPING;
@@ -1082,15 +1080,15 @@ void UPnPClient::findOpenPorts(const bool threaded)
         VARIANT_BOOL outPortMappingEnabled       = VARIANT_FALSE;
         BSTR         outPortMappingDescription   = nullptr;
         ULONG        outPortMappingLeaseDuration = 0;
-        hResult = GetGenericPortMappingEntry(gtoServices[0], deletePortMappingReturnStatus,
-                                             inPortMappingNumberOfEntries, &outRemoteHost, &outExternalPort,
-                                             &outPortMappingProtocol, &outInternalPort, &outInternalClient,
-                                             &outPortMappingEnabled, &outPortMappingDescription,
-                                             &outPortMappingLeaseDuration);
+        hResult = GetGenericPortMappingEntry(
+            gtoServices[0], deletePortMappingReturnStatus, inPortMappingNumberOfEntries, &outRemoteHost,
+            &outExternalPort, &outPortMappingProtocol, &outInternalPort, &outInternalClient, &outPortMappingEnabled,
+            &outPortMappingDescription, &outPortMappingLeaseDuration);
         if (SUCCEEDED(hResult)) {
-            TRACE_LOG("{}: {} {} {} {} {} {} {} {}", inPortMappingNumberOfEntries, to_string(outRemoteHost),
-                      outExternalPort, to_string(outPortMappingProtocol), outInternalPort, to_string(outInternalClient),
-                      outPortMappingEnabled, to_string(outPortMappingDescription), outPortMappingLeaseDuration);
+            BM_TRACE_LOG(
+                "{:d}: {:s} {:d} {:s} {:d} {:s} {} {:s} {:d}", inPortMappingNumberOfEntries, to_string(outRemoteHost), outExternalPort,
+                to_string(outPortMappingProtocol), outInternalPort, to_string(outInternalClient), outPortMappingEnabled == VARIANT_TRUE,
+                to_string(outPortMappingDescription), outPortMappingLeaseDuration);
             inPortMappingNumberOfEntries++;
             if (to_string(outInternalClient) == internalIPAddress) {
                 openPorts.push_back(outExternalPort);
@@ -1142,13 +1140,11 @@ void UPnPClient::FindDevices(const bool threaded)
         return;
     }
 
-    std::vector<std::wstring> const deviceList = {
+    const std::vector<std::wstring> deviceList = {
         //L"urn:schemas-upnp-org:device:InternetGatewayDevice:2",
         //L"urn:schemas-upnp-org:service:WANIPConnection:2",
-        L"urn:schemas-upnp-org:device:InternetGatewayDevice:1",
-        L"urn:schemas-upnp-org:service:WANIPConnection:1",
-        L"urn:schemas-upnp-org:service:WANPPPConnection:1",
-        L"upnp:rootdevice"
+        L"urn:schemas-upnp-org:device:InternetGatewayDevice:1", L"urn:schemas-upnp-org:service:WANIPConnection:1",
+        L"urn:schemas-upnp-org:service:WANPPPConnection:1", L"upnp:rootdevice"
         //L"ssdp:all"
     };
 
@@ -1175,7 +1171,7 @@ void UPnPClient::FindDevices(const bool threaded)
         }
         else {
             // Swap WANPPPConnection and WANIPConnection, so GTOServices[0] always works.
-            TRACE_LOG("Swapping WANPPPConnection and WANIPConnection");
+            BM_TRACE_LOG("Swapping WANPPPConnection and WANIPConnection");
             IUPnPService* tmp = gtoServices[0];
             gtoServices[0] = gtoServices[1];
             gtoServices[1] = tmp;
@@ -1221,7 +1217,7 @@ std::string UPnPClient::getDeviceFriendlyName(IUPnPDevice* pDevice)
         }
         else {
             deviceFriendlyName = "Unknown Name\n" + quote(FormatHResult(hr));
-            ERROR_LOG("failed to get the friendly name: {}", quote(FormatHResult(hr)));
+            BM_ERROR_LOG("failed to get the friendly name: {:s}", quote(FormatHResult(hr)));
         }
     }
 
@@ -1289,7 +1285,8 @@ std::string UPnPClient::GetClosePortStatus() const
             return "";
         case ServiceStatus::SERVICE_ERROR:
             if (FAILED(deletePortMappingResult.value())) {
-                return "Error: " + deletePortMappingReturnStatus + "\n" + FormatHResult(deletePortMappingResult.value());
+                return "Error: " + deletePortMappingReturnStatus + "\n" +
+                        FormatHResult(deletePortMappingResult.value());
             }
             if (!deletePortMappingReturnStatus.empty()) {
                 return "Error: " + deletePortMappingReturnStatus;

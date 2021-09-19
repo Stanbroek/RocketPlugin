@@ -1,12 +1,11 @@
 #pragma once
-#include "RocketPlugin.h"
 #include "GameModes/RocketGameMode.h"
 
 
 class Juggernaut final : public RocketGameMode
 {
 public:
-    explicit Juggernaut(RocketPlugin* rp) : RocketGameMode(rp) { _typeid = std::make_shared<std::type_index>(typeid(*this)); }
+    Juggernaut() { typeIdx = std::make_unique<std::type_index>(typeid(*this)); }
 
     void RenderOptions() override;
     bool IsActive() override;

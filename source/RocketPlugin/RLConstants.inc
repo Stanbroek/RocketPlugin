@@ -6,7 +6,7 @@ namespace RLConstants
 	const RocketPlugin::GameSetting GAME_MODES {
 		"GameModes", "Game Modes", 0,
 		{ "Soccar",                    "Hoops",                         "Snow Day",                  "Rumble",                   "",     "Dropshot",                    "Heatseeker",                 "Gridiron" },
-		{ "TAGame.GameInfo_Soccar_TA", "TAGame.GameInfo_Basketball_TA", "TAGame.GameInfo_Hockey_TA", "TAGame.GameInfo_Items_TA", "None", "TAGame.GameInfo_Breakout_TA", "TAGame.GameInfo_GodBall_TA", "TAGame.GameInfo_Football_TA" }
+		{ "TAGame.GameInfo_Soccar_TA", "TAGame.GameInfo_Basketball_TA", "TAGame.Gameinfo_Hockey_TA", "TAGame.GameInfo_Items_TA", "None", "TAGame.GameInfo_Breakout_TA", "TAGame.GameInfo_GodBall_TA", "TAGame.GameInfo_Football_TA" }
 	};
 
 	const std::map<std::string, std::string> MAPS {
@@ -26,8 +26,9 @@ namespace RLConstants
 		{ "Labs_Cosmic_V4_P",        "Cosmic (New)" },
 		{ "Labs_DoubleGoal_P",       "Double Goal (Old)" },
 		{ "Labs_DoubleGoal_V2_P",    "Double Goal (New)" },
-	    { "Labs_Galleon_Mast_P",     "Galleon Retro" },
+		{ "Labs_Galleon_Mast_P",     "Galleon Retro" },
 		{ "Labs_Galleon_P",          "Galleon" },
+		{ "Labs_Holyfield_P",        "Loophole" },
 		{ "Labs_Octagon_02_P",       "Octagon (New)" },
 		{ "Labs_Octagon_P",          "Octagon (Old)" },
 		{ "Labs_Underpass_P",        "Underpass" },
@@ -61,6 +62,7 @@ namespace RLConstants
 		{ "eurostadium_snownight_p", "Mannfield (Snowy)" },
 		{ "farm_p",                  "Farmstead" },
 		{ "music_p",                 "Neon Fields" },
+		{ "outlaw_p",				 "Deadeye Canyon" },
 		{ "stadium_day_p",           "DFH Stadium (Day)" },
 		{ "throwbackhockey_p",       "Throwback Stadium (Snowy)" },
 		{ "throwbackstadium_P",      "Throwback Stadium" },
@@ -75,7 +77,7 @@ namespace RLConstants
 	};
 
 	#define IM_VEC3(R, G, B) ImVec4(R, G, B, 1)
-	const int CUSTOM_HUE_COUNT = 15;
+	constexpr int CUSTOM_HUE_COUNT = 15;
 	const std::vector<ImVec4> CUSTOM_COLORS {
 		IM_VEC3(0.900000f, 0.900000f, 0.900000f), IM_VEC3(1.000000f, 0.500000f, 0.500000f), IM_VEC3(1.000000f, 0.625000f, 0.500000f), IM_VEC3(1.000000f, 0.812500f, 0.500000f), IM_VEC3(0.937500f, 1.000000f, 0.500000f), IM_VEC3(0.687500f, 1.000000f, 0.500000f), IM_VEC3(0.500000f, 1.000000f, 0.500000f), IM_VEC3(0.500000f, 1.000000f, 0.700000f), IM_VEC3(0.500000f, 0.916667f, 1.000000f), IM_VEC3(0.500000f, 0.691666f, 1.000000f), IM_VEC3(0.500000f, 0.533333f, 1.000000f), IM_VEC3(0.683334f, 0.500000f, 1.000000f), IM_VEC3(0.900000f, 0.500000f, 1.000000f), IM_VEC3(1.000000f, 0.500000f, 0.816666f), IM_VEC3(1.000000f, 0.500000f, 0.583333f),
 		IM_VEC3(0.750000f, 0.750000f, 0.750000f), IM_VEC3(1.000000f, 0.350000f, 0.350000f), IM_VEC3(1.000000f, 0.512500f, 0.350000f), IM_VEC3(1.000000f, 0.756250f, 0.350000f), IM_VEC3(0.918750f, 1.000000f, 0.350000f), IM_VEC3(0.593750f, 1.000000f, 0.350000f), IM_VEC3(0.350000f, 1.000000f, 0.350000f), IM_VEC3(0.350000f, 1.000000f, 0.610000f), IM_VEC3(0.350000f, 0.891666f, 1.000000f), IM_VEC3(0.350000f, 0.599166f, 1.000000f), IM_VEC3(0.350000f, 0.393333f, 1.000000f), IM_VEC3(0.588334f, 0.350000f, 1.000000f), IM_VEC3(0.870000f, 0.350000f, 1.000000f), IM_VEC3(1.000000f, 0.350000f, 0.761666f), IM_VEC3(1.000000f, 0.350000f, 0.458334f),
@@ -85,7 +87,7 @@ namespace RLConstants
 		IM_VEC3(0.150000f, 0.150000f, 0.150000f), IM_VEC3(0.400000f, 0.000000f, 0.000000f), IM_VEC3(0.400000f, 0.100000f, 0.000000f), IM_VEC3(0.400000f, 0.250000f, 0.000000f), IM_VEC3(0.350000f, 0.400000f, 0.000000f), IM_VEC3(0.150000f, 0.400000f, 0.000000f), IM_VEC3(0.000000f, 0.400000f, 0.000000f), IM_VEC3(0.000000f, 0.400000f, 0.160000f), IM_VEC3(0.000000f, 0.333333f, 0.400000f), IM_VEC3(0.000000f, 0.153333f, 0.400000f), IM_VEC3(0.000000f, 0.026667f, 0.400000f), IM_VEC3(0.146667f, 0.000000f, 0.400000f), IM_VEC3(0.320000f, 0.000000f, 0.400000f), IM_VEC3(0.400000f, 0.000000f, 0.253333f), IM_VEC3(0.400000f, 0.000000f, 0.066667f),
 		IM_VEC3(0.020000f, 0.020000f, 0.020000f), IM_VEC3(0.200000f, 0.000000f, 0.000000f), IM_VEC3(0.200000f, 0.050000f, 0.000000f), IM_VEC3(0.200000f, 0.125000f, 0.000000f), IM_VEC3(0.175000f, 0.200000f, 0.000000f), IM_VEC3(0.075000f, 0.200000f, 0.000000f), IM_VEC3(0.000000f, 0.200000f, 0.000000f), IM_VEC3(0.000000f, 0.200000f, 0.080000f), IM_VEC3(0.000000f, 0.166667f, 0.200000f), IM_VEC3(0.000000f, 0.076667f, 0.200000f), IM_VEC3(0.000000f, 0.013333f, 0.200000f), IM_VEC3(0.073333f, 0.000000f, 0.200000f), IM_VEC3(0.160000f, 0.000000f, 0.200000f), IM_VEC3(0.200000f, 0.000000f, 0.126667f), IM_VEC3(0.200000f, 0.000000f, 0.033333f)
 	};
-	const int CLUB_HUE_COUNT = 15;
+	constexpr int CLUB_HUE_COUNT = 15;
 	const std::vector<ImVec4> CLUB_COLORS {
 		IM_VEC3(0.900000f, 0.900000f, 0.900000f), IM_VEC3(1.000000f, 0.500000f, 0.500000f), IM_VEC3(1.000000f, 0.625000f, 0.500000f), IM_VEC3(1.000000f, 0.812500f, 0.500000f), IM_VEC3(0.937500f, 1.000000f, 0.500000f), IM_VEC3(0.687500f, 1.000000f, 0.500000f), IM_VEC3(0.500000f, 1.000000f, 0.500000f), IM_VEC3(0.500000f, 1.000000f, 0.700000f), IM_VEC3(0.500000f, 0.916667f, 1.000000f), IM_VEC3(0.500000f, 0.691666f, 1.000000f), IM_VEC3(0.500000f, 0.533333f, 1.000000f), IM_VEC3(0.683334f, 0.500000f, 1.000000f), IM_VEC3(0.900000f, 0.500000f, 1.000000f), IM_VEC3(1.000000f, 0.500000f, 0.816666f), IM_VEC3(1.000000f, 0.500000f, 0.583333f),
 		IM_VEC3(0.750000f, 0.750000f, 0.750000f), IM_VEC3(1.000000f, 0.350000f, 0.350000f), IM_VEC3(1.000000f, 0.512500f, 0.350000f), IM_VEC3(1.000000f, 0.756250f, 0.350000f), IM_VEC3(0.918750f, 1.000000f, 0.350000f), IM_VEC3(0.593750f, 1.000000f, 0.350000f), IM_VEC3(0.350000f, 1.000000f, 0.350000f), IM_VEC3(0.350000f, 1.000000f, 0.610000f), IM_VEC3(0.350000f, 0.891666f, 1.000000f), IM_VEC3(0.350000f, 0.599166f, 1.000000f), IM_VEC3(0.350000f, 0.393333f, 1.000000f), IM_VEC3(0.588334f, 0.350000f, 1.000000f), IM_VEC3(0.870000f, 0.350000f, 1.000000f), IM_VEC3(1.000000f, 0.350000f, 0.761666f), IM_VEC3(1.000000f, 0.350000f, 0.458334f),

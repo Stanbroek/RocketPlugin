@@ -2,28 +2,28 @@
 #include "RocketPlugin.h"
 
 
-class Config
+class BaseConfig
 {
 public:
-    Config() = default;
-    ~Config();
-    Config(Config&& other) = delete;
-    Config(const Config& other) = delete;
-    Config& operator=(Config&& other) = delete;
-    Config& operator=(const Config& other) = delete;
+    BaseConfig() = default;
+    ~BaseConfig();
+    BaseConfig(BaseConfig&& other) = delete;
+    BaseConfig(const BaseConfig& other) = delete;
+    BaseConfig& operator=(BaseConfig&& other) = delete;
+    BaseConfig& operator=(const BaseConfig& other) = delete;
 
     std::shared_future<std::pair<bool, std::string>> Request(const std::string& url,
-                                                             std::chrono::seconds timeout = std::chrono::seconds(4));
+        std::chrono::seconds timeout = std::chrono::seconds(4));
 
 private:
     std::unordered_map<std::string, std::shared_future<std::pair<bool, std::string>>> activeRequests;
 };
 
 
-class RPConfig final : Config
+class RPConfig final : BaseConfig
 {
 public:
-    explicit RPConfig(const std::string& configUrl) : configUrl(configUrl) {}
+    explicit RPConfig(std::string configUrl) : configUrl(std::move(configUrl)) {}
 
     static bool ParseGameSettings(const std::string& data, class RocketPlugin* rocketPlugin);
     static bool ParseRumbleItems(const std::string& data, class CrazyRumble* crazyRumble);
@@ -35,11 +35,10 @@ private:
     static void parseBotDifficulties(simdjson::ondemand::document& doc, RocketPlugin::GameSetting& botDifficulties);
     static void parseAvailableMaps(simdjson::ondemand::document& doc, std::map<std::string, std::string>& maps);
     static void parseAvailableColors(simdjson::ondemand::document& doc, int& customColorHues,
-                                     std::vector<ImVec4>& customColors, int& clubColorHues,
-                                     std::vector<ImVec4>& clubColors, ImVec4& bluePrimaryColor, ImVec4& blueAccentColor,
-                                     ImVec4& orangePrimaryColor, ImVec4& orangeAccentColor);
+        std::vector<ImVec4>& customColors, int& clubColorHues, std::vector<ImVec4>& clubColors,
+        ImVec4& bluePrimaryColor, ImVec4& blueAccentColor, ImVec4& orangePrimaryColor, ImVec4& orangeAccentColor);
     static void parseAvailableMutators(simdjson::ondemand::document& doc,
-                                       std::vector<RocketPlugin::GameSetting>& mutators);
+        std::vector<RocketPlugin::GameSetting>& mutators);
     std::future<bool> requestConfig();
 
     std::string configUrl;

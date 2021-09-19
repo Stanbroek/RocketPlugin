@@ -20,6 +20,7 @@
 #include <string_view>
 #include <filesystem>
 #include <functional>
+#include <algorithm>
 #include <fstream>
 #include <utility>
 #include <chrono>
@@ -50,14 +51,16 @@
 #include "utils/exception_safety.h"
 #include "utils/parser_w.h"
 
-enum {
+enum
+{
     PLUGINTYPE_ALL = 0x00
 };
 
 // General Utils
-#include "utils/xorstr.h"
+#include "utils/timer.h"
 #include "utils/stringify.h"
 #include "utils/threading.h"
+#include "utils/filesystem.h"
 #include "utils/exception_safety.h"
 
 // Dear ImGui
@@ -66,6 +69,7 @@ enum {
 #include "ImGui/imgui_searchablecombo.h"
 #include "ImGui/imgui_rangeslider.h"
 #include "ImGui/imgui_additions.h"
+//#include "ImGui/imgui_stdlib.h"
 
 // SIMDJson
 #pragma warning(push, 0)
@@ -78,6 +82,7 @@ enum {
 #include "fmt/ostream.h"
 #include "fmt/chrono.h"
 #include "fmt/ranges.h"
+#include "fmt/xchar.h"
 #include "fmt/os.h"
 
 #endif //PCH_H

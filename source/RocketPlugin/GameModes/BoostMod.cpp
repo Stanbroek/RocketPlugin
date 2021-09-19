@@ -2,7 +2,7 @@
 // A general team based boost modifier game mode for Rocket Plugin.
 //
 // Author:        Al12 and Stanbroek
-// Version:       0.1.3 24/12/20
+// Version:       0.1.4 15/08/21
 // BMSDK version: 95
 
 #include "BoostMod.h"
@@ -42,11 +42,13 @@ bool BoostMod::IsActive()
 void BoostMod::Activate(const bool active)
 {
     if (active && !isActive) {
-        HookEventWithCaller<ServerWrapper>("Function GameEvent_Soccar_TA.Active.Tick",
+        HookEventWithCaller<ServerWrapper>(
+            "Function GameEvent_Soccar_TA.Active.Tick",
             [this](const ServerWrapper& caller, void*, const std::string&) {
                 onTick(caller);
             });
-        HookEventWithCaller<ServerWrapper>("Function GameEvent_Soccar_TA.Countdown.BeginState",
+        HookEventWithCaller<ServerWrapper>(
+            "Function GameEvent_Soccar_TA.Countdown.BeginState",
             [this](const ServerWrapper& caller, void*, const std::string&) {
                 onTick(caller);
             });
@@ -96,16 +98,10 @@ void BoostMod::renderSingleOption(BoostModifier& boostModifier, const bool toggl
 /// <param name="server"><see cref="ServerWrapper"/> instance of the server</param>
 void BoostMod::onTick(ServerWrapper server)
 {
-    if (server.IsNull()) {
-        ERROR_LOG("could not get the server");
-        return;
-    }
+    BMCHECK(server);
 
     for (TeamWrapper team : server.GetTeams()) {
-        if (team.IsNull()) {
-            WARNING_LOG("could not get the team");
-            continue;
-        }
+        BMCHECK_LOOP(team);
 
         BoostModifier boostModifier;
         const int teamIndex = team.GetTeamIndex();
@@ -117,12 +113,14 @@ void BoostMod::onTick(ServerWrapper server)
         }
 
         for (PriWrapper player : team.GetMembers()) {
-            if (player.IsNull() || player.GetCar().IsNull() || player.GetCar().GetBoostComponent().IsNull()) {
-                WARNING_LOG("could not get the players car boost component");
-                continue;
-            }
+            BMCHECK_LOOP(player);
 
-            BoostWrapper boostComponent = player.GetCar().GetBoostComponent();
+            CarWrapper car = player.GetCar();
+            BMCHECK_LOOP(car);
+
+            BoostWrapper boostComponent = car.GetBoostComponent();
+            BMCHECK_LOOP(boostComponent);
+
             // Max boost.
             if (boostComponent.GetCurrentBoostAmount() * 100 > boostModifier.MaxBoost) {
                 boostComponent.SetBoostAmount(boostModifier.MaxBoost / 100.f);
@@ -133,27 +131,27 @@ void BoostMod::onTick(ServerWrapper server)
             boostComponent.SetRechargeDelay(0);
             switch (boostModifier.BoostAmountModifier) {
                 // No boost
-            case 1:
-                boostComponent.SetBoostAmount(0);
-                boostComponent.ClientGiveBoost(0);
-                break;
+                case 1:
+                    boostComponent.SetBoostAmount(0);
+                    boostComponent.ClientGiveBoost(0);
+                    break;
                 // Unlimited
-            case 2:
-                boostComponent.SetBoostAmount(1);
-                boostComponent.ClientGiveBoost(0);
-                break;
+                case 2:
+                    boostComponent.SetBoostAmount(1);
+                    boostComponent.ClientGiveBoost(0);
+                    break;
                 // Recharge (slow)
-            case 3:
-                boostComponent.SetRechargeRate(0.06660f);
-                boostComponent.SetRechargeDelay(2);
-                break;
+                case 3:
+                    boostComponent.SetRechargeRate(0.06660f);
+                    boostComponent.SetRechargeDelay(2);
+                    break;
                 // Recharge (fast)
-            case 4:
-                boostComponent.SetRechargeRate(0.16660f);
-                boostComponent.SetRechargeDelay(2);
-                break;
-            default:
-                break;
+                case 4:
+                    boostComponent.SetRechargeRate(0.16660f);
+                    boostComponent.SetRechargeDelay(2);
+                    break;
+                default:
+                    break;
             }
         }
     }

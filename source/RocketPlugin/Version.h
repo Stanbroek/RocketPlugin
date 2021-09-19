@@ -1,11 +1,11 @@
 #pragma once
-#define __STRINGIZE(s)      #s
-#define STRINGIZE(s)        __STRINGIZE(s)
+#define STRINGIZE2(s)		#s
+#define STRINGIZE(s)		STRINGIZE2(s)
 
 #define VERSION_MAJOR       0
 #define VERSION_MINOR       6
-#define VERSION_REVISION    7
-#define VERSION_BUILD       56
+#define VERSION_REVISION    8
+#define VERSION_BUILD       2
 
 #define VER_FILE_DESCRIPTION_STR    "Rocket Plugin"
 #define VER_FILE_VERSION            VERSION_MAJOR, VERSION_MINOR, VERSION_REVISION, VERSION_BUILD

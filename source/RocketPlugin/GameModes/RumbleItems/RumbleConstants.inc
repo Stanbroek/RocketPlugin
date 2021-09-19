@@ -7,8 +7,10 @@ namespace RumbleConstants
 		{
 			{
 				{
-					true,
-					99.f
+			        "Boot",
+			        "CarSpring",
+			        true,
+			        99.f
 				},
 				false,
 				true,
@@ -30,8 +32,10 @@ namespace RumbleConstants
 	const BoostOverrideWrapper disruptor = {
 		{
 			{
-				true,
-				5.f
+			    "Disruptor",
+			    "EnemyBooster",
+			    true,
+			    5.f
 			},
 			false,
 			true,
@@ -43,8 +47,10 @@ namespace RumbleConstants
 	const BallFreezeWrapper freezer = {
 		{
 			{
-				true,
-				4.f
+			    "Freezer",
+			    "BallFreeze",
+			    true,
+			    4.f
 			},
 			true,
 			false,
@@ -59,8 +65,10 @@ namespace RumbleConstants
 	const GrapplingHookWrapper grapplingHook = {
 		{
 			{
-				true,
-				6.f
+			    "Grappling Hook",
+			    "GrapplingHook",
+			    true,
+			    6.f
 			},
 			true,
 			false,
@@ -77,8 +85,10 @@ namespace RumbleConstants
 		{
 			{
 				{
-					true,
-					99.f
+			        "Haymaker",
+			        "BallSpring",
+			        true,
+			        99.f
 				},
 				true,
 				false,
@@ -99,6 +109,8 @@ namespace RumbleConstants
 	};
 	const GravityWrapper magnetizer = {
 		{
+			"Magnetizer",
+			"BallMagnet",
 			true,
 			6.f
 		},
@@ -111,8 +123,10 @@ namespace RumbleConstants
 			{
 				{
 					{
-						true,
-						99.f
+			            "Plunger",
+			            "BallLasso",
+			            true,
+			            99.f
 					},
 					true,
 					false,
@@ -135,6 +149,8 @@ namespace RumbleConstants
 	};
 	const HitForceWrapper powerhitter = {
 		{
+			"Powerhitter",
+			"Powerhitter",
 			true,
 			12.f
 		},
@@ -146,6 +162,8 @@ namespace RumbleConstants
 	};
 	const VelcroWrapper spikes = {
 		{
+			"Spikes",
+			"BallVelcro",
 			true,
 			12.f
 		},
@@ -159,8 +177,10 @@ namespace RumbleConstants
 	const SwapperWrapper swapper = {
 		{
 			{
-				true,
-				0.75f
+			    "Swapper",
+			    "EnemySwapper",
+			    true,
+			    0.75f
 			},
 			false,
 			true,
@@ -171,6 +191,8 @@ namespace RumbleConstants
 	};
 	const TornadoWrapper tornado = {
 		{
+			"Tornado",
+			"Tornado",
 			true,
 			8.f
 		},
@@ -187,8 +209,10 @@ namespace RumbleConstants
 	const HauntedWrapper haunted = {
 		{
 			{
-				true,
-				99.f
+			    "Haunted",
+			    "HauntedBallBeam",
+			    true,
+			    4.f
 			},
 			3500.f,
 			1200.f,
@@ -197,8 +221,10 @@ namespace RumbleConstants
 	};
 	const RugbyWrapper rugby = {
 		{
+			"Rugby",
+			"RugbySpikes",
 			true,
-			99.f
+			100000000000000000.f
 		}
 	};
 }

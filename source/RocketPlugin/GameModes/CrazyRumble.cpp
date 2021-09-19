@@ -2,12 +2,10 @@
 // A crazy rumble customizer game mode for Rocket Plugin.
 //
 // Author:        Stanbroek
-// Version:       0.3.1 16/04/21
+// Version:       0.3.3 07/09/21
 // BMSDK version: 95
 
 #include "CrazyRumble.h"
-
-#include "RumbleItems/RumbleConstants.inc"
 
 
 /// <summary>Renders the available options for the game mode.</summary>
@@ -15,70 +13,45 @@ void CrazyRumble::RenderOptions()
 {
     if (refreshRumbleConstants) {
         if (!rumbleConstantsRequest.valid()) {
-            rumbleConstantsRequest = rocketPlugin->ConstantsConfig->RequestRumbleConstants();
+            rumbleConstantsRequest = Outer()->ConstantsConfig->RequestRumbleConstants();
         }
         if (rumbleConstantsRequest._Is_ready()) {
             refreshRumbleConstants = false;
             const auto& [successful, data] = rumbleConstantsRequest.get();
-            if (!successful || !RPConfig::ParseRumbleItems(data, this)) {
-                rocketPlugin->Execute([this](GameWrapper*) {
-                    WARNING_LOG("could not load rumble items");
-                    InitializeItemsValues();
-                });
+            if (successful) {
+                RPConfig::ParseRumbleItems(data, this);
             }
-#ifdef DEBUG
-            else {
-                rocketPlugin->Execute([this](GameWrapper*) {
-                    TRACE_LOG("loading rumble items from game files.");
-                    InitializeItemsValues();
-                });
-            }
-#endif
         }
     }
 
     bool shouldUpdateCars = false;
+    bool shouldUpdateItemPool = false;
 
     ImGui::Text("Presets:");
     ImGui::Spacing();
 
     if (ImGui::Button("Bumper Cars")) {
         ResetItemsValues();
-        powerhitter.DemolishCars = false;
-        powerhitter.ActivationDuration = 300.0f;
+        for (const std::shared_ptr<RumbleWrapper>& rumbleItem : rumbleItems) {
+            rumbleItem->Enabled = false;
+        }
+        powerhitter->Enabled = true;
+        powerhitter->DemolishCars = false;
+        powerhitter->ActivationDuration = 300.0f;
         shouldUpdateCars = true;
+        shouldUpdateItemPool = true;
     }
     ImGui::SameLine();
     if (ImGui::Button("Target Everything")) {
         ResetItemsValues();
-        boot.CanTargetBall = true;
-        boot.CanTargetCars = true;
-        boot.CanTargetEnemyCars = true;
-        boot.CanTargetTeamCars = true;
-        disruptor.CanTargetBall = true;
-        disruptor.CanTargetCars = true;
-        disruptor.CanTargetEnemyCars = true;
-        disruptor.CanTargetTeamCars = true;
-        freezer.CanTargetBall = true;
-        freezer.CanTargetCars = true;
-        freezer.CanTargetEnemyCars = true;
-        freezer.CanTargetTeamCars = true;
-        grapplingHook.CanTargetBall = true;
-        grapplingHook.CanTargetCars = true;
-        grapplingHook.CanTargetEnemyCars = true;
-        grapplingHook.CanTargetTeamCars = true;
-        haymaker.CanTargetBall = true;
-        haymaker.CanTargetCars = true;
-        haymaker.CanTargetEnemyCars = true;
-        haymaker.CanTargetTeamCars = true;
-        plunger.CanTargetBall = true;
-        plunger.CanTargetCars = true;
-        plunger.CanTargetEnemyCars = true;
-        plunger.CanTargetTeamCars = true;
-        swapper.CanTargetBall = true;
-        swapper.CanTargetCars = true;
-        swapper.CanTargetEnemyCars = true;
-        swapper.CanTargetTeamCars = true;
+        for (const std::shared_ptr<RumbleWrapper>& rumbleItem : rumbleItems) {
+            if (const std::shared_ptr<TargetedWrapper>& targetedRumbleItem = std::dynamic_pointer_cast<TargetedWrapper>(rumbleItem)) {
+                targetedRumbleItem->CanTargetBall = true;
+                targetedRumbleItem->CanTargetCars = true;
+                targetedRumbleItem->CanTargetEnemyCars = true;
+                targetedRumbleItem->CanTargetTeamCars = true;
+            }
+        }
         shouldUpdateCars = true;
     }
     ImGui::SameLine();
@@ -119,7 +92,7 @@ void CrazyRumble::RenderOptions()
         shouldUpdateCars = true;
     }
     if (ImGui::SliderInt("till next item", &maxTimeTillItem, 0, 20, "%d seconds")) {
-        rocketPlugin->Execute([this](GameWrapper*) {
+        Execute([this](GameWrapper*) {
             updateDispensers(true, false);
         });
     }
@@ -151,78 +124,24 @@ void CrazyRumble::RenderOptions()
     ImGui::Text("Per item customization:");
     ImGui::Spacing();
 
-    bool shouldUpdateItemPool = ImGui::Checkbox("##EnableBoot", &boot.Enabled);
-    ImGui::SameLine();
-    if (ImGui::CollapsingHeader("Boot")) {
-        shouldUpdateCars |= boot.Render();
-    }
-    shouldUpdateItemPool |= ImGui::Checkbox("##EnableDisruptor", &disruptor.Enabled);
-    ImGui::SameLine();
-    if (ImGui::CollapsingHeader("Disruptor")) {
-        shouldUpdateCars |= disruptor.Render();
-    }
-    shouldUpdateItemPool |= ImGui::Checkbox("##EnableFreezer", &freezer.Enabled);
-    ImGui::SameLine();
-    if (ImGui::CollapsingHeader("Freezer")) {
-        shouldUpdateCars |= freezer.Render();
-    }
-    shouldUpdateItemPool |= ImGui::Checkbox("##EnableGrapplingHook", &grapplingHook.Enabled);
-    ImGui::SameLine();
-    if (ImGui::CollapsingHeader("Grappling Hook")) {
-        shouldUpdateCars |= grapplingHook.Render();
-    }
-    shouldUpdateItemPool |= ImGui::Checkbox("##EnableHaymaker", &haymaker.Enabled);
-    ImGui::SameLine();
-    if (ImGui::CollapsingHeader("Haymaker")) {
-        shouldUpdateCars |= haymaker.Render();
-    }
-    shouldUpdateItemPool |= ImGui::Checkbox("##EnableMagnetizer", &magnetizer.Enabled);
-    ImGui::SameLine();
-    if (ImGui::CollapsingHeader("Magnetizer")) {
-        shouldUpdateCars |= magnetizer.Render();
-    }
-    shouldUpdateItemPool |= ImGui::Checkbox("##EnablePlunger", &plunger.Enabled);
-    ImGui::SameLine();
-    if (ImGui::CollapsingHeader("Plunger")) {
-        shouldUpdateCars |= plunger.Render();
-    }
-    shouldUpdateItemPool |= ImGui::Checkbox("##EnablePowerhitter", &powerhitter.Enabled);
-    ImGui::SameLine();
-    if (ImGui::CollapsingHeader("Powerhitter")) {
-        shouldUpdateCars |= powerhitter.Render();
-    }
-    shouldUpdateItemPool |= ImGui::Checkbox("##EnableSpikes", &spikes.Enabled);
-    ImGui::SameLine();
-    if (ImGui::CollapsingHeader("Spikes")) {
-        shouldUpdateCars |= spikes.Render();
-    }
-    shouldUpdateItemPool |= ImGui::Checkbox("##EnableSwapper", &swapper.Enabled);
-    ImGui::SameLine();
-    if (ImGui::CollapsingHeader("Swapper")) {
-        shouldUpdateCars |= swapper.Render();
-    }
-    shouldUpdateItemPool |= ImGui::Checkbox("##EnableTornado", &tornado.Enabled);
-    ImGui::SameLine();
-    if (ImGui::CollapsingHeader("Tornado")) {
-        shouldUpdateCars |= tornado.Render();
-    }
-    shouldUpdateItemPool |= ImGui::Checkbox("##EnableHaunted", &haunted.Enabled);
-    ImGui::SameLine();
-    if (ImGui::CollapsingHeader("Haunted")) {
-        shouldUpdateCars |= haunted.Render();
-    }
-    shouldUpdateItemPool |= ImGui::Checkbox("##EnableRugby", &rugby.Enabled);
-    ImGui::SameLine();
-    if (ImGui::CollapsingHeader("Rugby")) {
-        shouldUpdateCars |= rugby.Render();
+    for (const std::shared_ptr<RumbleWrapper>& rumbleItem : rumbleItems) {
+        shouldUpdateItemPool |= ImGui::Checkbox(fmt::format("##Enable{:s}", rumbleItem->DisplayName).c_str(), &rumbleItem->Enabled);
+        ImGui::SameLine();
+        if (ImGui::CollapsingHeader(rumbleItem->DisplayName.c_str())) {
+            shouldUpdateCars |= rumbleItem->Render();
+        }
     }
 
-    rocketPlugin->Execute([this, shouldUpdateItemPool](GameWrapper*) {
-        updateDispensers(false, shouldUpdateItemPool);
-    });
-    rocketPlugin->Execute([this, shouldUpdateCars](GameWrapper*) {
-        updateRumbleOptions(shouldUpdateCars);
-    });
+    if (shouldUpdateItemPool) {
+        Execute([this](GameWrapper*) {
+            updateDispensers(false, true);
+        });
+    }
+    if (shouldUpdateCars) {
+        Execute([this](GameWrapper*) {
+            updateRumbleOptions();
+        });
+    }
 }
 
 
@@ -238,11 +157,13 @@ bool CrazyRumble::IsActive()
 void CrazyRumble::Activate(const bool active)
 {
     if (active && !isActive) {
-        HookEventWithCallerPost<ActorWrapper>("Function TAGame.ItemPool_TA.GiveItem",
+        HookEventWithCallerPost<ActorWrapper>(
+            "Function TAGame.ItemPool_TA.GiveItem",
             [this](const ActorWrapper& caller, void*, const std::string&) {
                 onGiveItem(caller);
             });
-        HookEventWithCallerPost<ActorWrapper>("Function TAGame.PlayerItemDispenser_TA.Init",
+        HookEventWithCallerPost<ActorWrapper>(
+            "Function TAGame.PlayerItemDispenser_TA.Init",
             [this](const ActorWrapper& caller, void*, const std::string&) {
                 updateDispenserItemPool(caller);
                 updateDispenserMaxTimeTillItem(caller);
@@ -267,45 +188,18 @@ std::string CrazyRumble::GetGameModeName()
 }
 
 
-/// <summary>Initializes default rumble items values.</summary>
-void CrazyRumble::InitializeItemsValues()
-{
-    boot = RumbleConstants::boot;
-    disruptor = RumbleConstants::disruptor;
-    freezer = RumbleConstants::freezer;
-    grapplingHook = RumbleConstants::grapplingHook;
-    haymaker = RumbleConstants::haymaker;
-    magnetizer = RumbleConstants::magnetizer;
-    plunger = RumbleConstants::plunger;
-    powerhitter = RumbleConstants::powerhitter;
-    spikes = RumbleConstants::spikes;
-    swapper = RumbleConstants::swapper;
-    tornado = RumbleConstants::tornado;
-    haunted = RumbleConstants::haunted;
-    rugby = RumbleConstants::rugby;
-}
-
-
+/// <summary>Resets the rumble items values</summary>
 void CrazyRumble::ResetItemsValues()
 {
     forceMultiplier = 1.f;
     rangeMultiplier = 1.f;
     durationMultiplier = 1.f;
 
-    boot.Reset(RumbleConstants::boot);
-    disruptor.Reset(RumbleConstants::disruptor);
-    freezer.Reset(RumbleConstants::freezer);
-    grapplingHook.Reset(RumbleConstants::grapplingHook);
-    haymaker.Reset(RumbleConstants::haymaker);
-    magnetizer.Reset(RumbleConstants::magnetizer);
-    plunger.Reset(RumbleConstants::plunger);
-    powerhitter.Reset(RumbleConstants::powerhitter);
-    spikes.Reset(RumbleConstants::spikes);
-    swapper.Reset(RumbleConstants::swapper);
-    tornado.Reset(RumbleConstants::tornado);
-    haunted.Reset(RumbleConstants::haunted);
-    rugby.Reset(RumbleConstants::rugby);
+    for (const std::shared_ptr<RumbleWrapper>& rumbleItem : rumbleItems) {
+        rumbleItem->Reset();
+    }
 }
+
 
 /// <summary>Resets the rumble items values, with an optional multiplier.</summary>
 /// <param name="newForceMultiplier">Multiplier of the force</param>
@@ -318,40 +212,20 @@ void CrazyRumble::UpdateItemsValues(const float newForceMultiplier, const float 
     rangeMultiplier = newRangeMultiplier;
     durationMultiplier = newDurationMultiplier;
 
-    boot.Multiply(RumbleConstants::boot, forceMultiplier, rangeMultiplier, durationMultiplier);
-    disruptor.Multiply(RumbleConstants::disruptor, forceMultiplier, rangeMultiplier, durationMultiplier);
-    freezer.Multiply(RumbleConstants::freezer, forceMultiplier, rangeMultiplier, durationMultiplier);
-    grapplingHook.Multiply(RumbleConstants::grapplingHook, forceMultiplier, rangeMultiplier, durationMultiplier);
-    haymaker.Multiply(RumbleConstants::haymaker, forceMultiplier, rangeMultiplier, durationMultiplier);
-    magnetizer.Multiply(RumbleConstants::magnetizer, forceMultiplier, rangeMultiplier, durationMultiplier);
-    plunger.Multiply(RumbleConstants::plunger, forceMultiplier, rangeMultiplier, durationMultiplier);
-    powerhitter.Multiply(RumbleConstants::powerhitter, forceMultiplier, rangeMultiplier, durationMultiplier);
-    spikes.Multiply(RumbleConstants::spikes, forceMultiplier, rangeMultiplier, durationMultiplier);
-    swapper.Multiply(RumbleConstants::swapper, forceMultiplier, rangeMultiplier, durationMultiplier);
-    tornado.Multiply(RumbleConstants::tornado, forceMultiplier, rangeMultiplier, durationMultiplier);
-    haunted.Multiply(RumbleConstants::haunted, forceMultiplier, rangeMultiplier, durationMultiplier);
-    rugby.Multiply(RumbleConstants::rugby, forceMultiplier, rangeMultiplier, durationMultiplier);
+    for (const std::shared_ptr<RumbleWrapper>& rumbleItem : rumbleItems) {
+        rumbleItem->Multiply(forceMultiplier, rangeMultiplier, durationMultiplier);
+    }
 }
 
 
 /// <summary>Updates the rumble options for every car.</summary>
-void CrazyRumble::updateRumbleOptions(const bool update) const
+void CrazyRumble::updateRumbleOptions() const
 {
-    if (!update) {
-        return;
-    }
-
-    ServerWrapper game = gameWrapper->GetGameEventAsServer();
-    if (game.IsNull()) {
-        ERROR_LOG("could not get the game");
-        return;
-    }
+    ServerWrapper game = Outer()->GetGame();
+    BMCHECK(game);
 
     for (CarWrapper car : game.GetCars()) {
-        if (car.IsNull()) {
-            ERROR_LOG("could not get the car");
-            continue;
-        }
+        BMCHECK_LOOP(car);
 
         updateRumbleOptions(car);
     }
@@ -362,60 +236,19 @@ void CrazyRumble::updateRumbleOptions(const bool update) const
 /// <param name="car">car to set the rumble options for</param>
 void CrazyRumble::updateRumbleOptions(CarWrapper car) const
 {
-    if (car.IsNull()) {
-        ERROR_LOG("could not get the car");
-        return;
+    BMCHECK(car);
+
+    RumblePickupComponentWrapper attachedPickup = car.GetAttachedPickup();
+    BMCHECK(attachedPickup);
+
+    const std::string rumbleItemName = attachedPickup.GetPickupName().ToString();
+    for (const std::shared_ptr<RumbleWrapper>& rumbleItem : rumbleItems) {
+        if (rumbleItem->InternalName == rumbleItemName) {
+            rumbleItem->Update(attachedPickup.memory_address);
+            // TODO, replicate rumble settings.
+            return;
+        }
     }
 
-    RumblePickupComponentWrapper rumbleItem = car.GetAttachedPickup();
-    if (rumbleItem.IsNull()) {
-        ERROR_LOG("could not get rumble item");
-        return;
-    }
-
-    const std::string rumbleItemName = rumbleItem.GetPickupName().ToString();
-    if (rumbleItemName == "BallMagnet") {
-        magnetizer.Update(rumbleItem.memory_address);
-    }
-    else if (rumbleItemName == "CarSpring") {
-        boot.Update(rumbleItem.memory_address);
-    }
-    else if (rumbleItemName == "BallSpring") {
-        haymaker.Update(rumbleItem.memory_address);
-    }
-    else if (rumbleItemName == "Tornado") {
-        tornado.Update(rumbleItem.memory_address);
-    }
-    else if (rumbleItemName == "GrapplingHook") {
-        grapplingHook.Update(rumbleItem.memory_address);
-    }
-    else if (rumbleItemName == "Powerhitter") {
-        powerhitter.Update(rumbleItem.memory_address);
-    }
-    else if (rumbleItemName == "EnemyBooster") {
-        disruptor.Update(rumbleItem.memory_address);
-    }
-    else if (rumbleItemName == "BallLasso") {
-        plunger.Update(rumbleItem.memory_address);
-    }
-    else if (rumbleItemName == "BallVelcro") {
-        spikes.Update(rumbleItem.memory_address);
-    }
-    else if (rumbleItemName == "BallFreeze") {
-        freezer.Update(rumbleItem.memory_address);
-    }
-    else if (rumbleItemName == "EnemySwapper") {
-        swapper.Update(rumbleItem.memory_address);
-    }
-    else if (rumbleItemName == "HauntedBallBeam") {
-        haunted.Update(rumbleItem.memory_address);
-    }
-    else if (rumbleItemName == "RugbySpikes") {
-        rugby.Update(rumbleItem.memory_address);
-    }
-    else {
-        ERROR_LOG("unknown rumble item {}", quote(rumbleItemName));
-    }
-
-    // TODO, replicate rumble settings.
+    BM_ERROR_LOG("unknown rumble item {:s}", quote(rumbleItemName));
 }

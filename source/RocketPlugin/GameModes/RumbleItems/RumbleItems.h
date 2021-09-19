@@ -1,13 +1,31 @@
 #pragma once
+#include <utility>
 
 
 class RumbleWrapper
 {
 public:
-    bool Render();
-    void Reset(RumbleWrapper def);
-    void Update(RumblePickupComponentWrapper item) const;
-    void Multiply(RumbleWrapper def, float forceMultiplier, float rangeMultiplier, float durationMultiplier);
+    constexpr RumbleWrapper(const std::string displayName, const std::string internalName, const bool enabled, const float activationDuration) :
+        DisplayName(std::move(displayName)),
+        InternalName(std::move(internalName)),
+        Enabled(enabled),
+        ActivationDuration(activationDuration) {}
+    explicit constexpr RumbleWrapper(const RumbleWrapper* archetype) :
+        Archetype(archetype),
+        DisplayName(archetype->DisplayName),
+        InternalName(archetype->InternalName),
+        Enabled(archetype->Enabled),
+        ActivationDuration(archetype->ActivationDuration) {}
+    virtual ~RumbleWrapper() = default;
+
+    virtual bool Render();
+    virtual void Reset();
+    virtual void Update(std::uintptr_t item) const;
+    virtual void Multiply(float forceMultiplier, float rangeMultiplier, float durationMultiplier);
+
+    const RumbleWrapper* Archetype = nullptr;
+    /*const*/ std::string DisplayName;
+    /*const*/ std::string InternalName;
 
     bool Enabled;
     float ActivationDuration;
@@ -18,10 +36,26 @@ class TargetedWrapper : public RumbleWrapper
 {
     using Super = RumbleWrapper;
 public:
-    bool Render();
-    void Reset(TargetedWrapper def);
-    void Update(TargetedPickup item) const;
-    void Multiply(TargetedWrapper def, float forceMultiplier, float rangeMultiplier, float durationMultiplier);
+    constexpr TargetedWrapper(const Super& super, const bool canTargetBall, const bool canTargetCars,
+        const bool canTargetEnemyCars, const bool canTargetTeamCars, const float range) :
+        Super(super),
+        CanTargetBall(canTargetBall),
+        CanTargetCars(canTargetCars),
+        CanTargetEnemyCars(canTargetEnemyCars),
+        CanTargetTeamCars(canTargetTeamCars),
+        Range(range) {}
+    explicit constexpr TargetedWrapper(const TargetedWrapper* archetype) :
+        Super(archetype),
+        CanTargetBall(archetype->CanTargetBall),
+        CanTargetCars(archetype->CanTargetCars),
+        CanTargetEnemyCars(archetype->CanTargetEnemyCars),
+        CanTargetTeamCars(archetype->CanTargetTeamCars),
+        Range(archetype->Range) {}
+
+    bool Render() override;
+    void Reset() override;
+    void Update(std::uintptr_t item) const override;
+    void Multiply(float forceMultiplier, float rangeMultiplier, float durationMultiplier) override;
 
     bool CanTargetBall;
     bool CanTargetCars;
@@ -35,10 +69,35 @@ class SpringWrapper : public TargetedWrapper
 {
     using Super = TargetedWrapper;
 public:
-    bool Render();
-    void Reset(SpringWrapper def);
-    void Update(SpringPickup item) const;
-    void Multiply(SpringWrapper def, float forceMultiplier, float rangeMultiplier, float durationMultiplier);
+    constexpr SpringWrapper(const Super& super, const float force, const float verticalForce, const Vector& torque,
+        const float relativeForceNormalDirection, const float maxSpringLength, const float constantForce,
+        const float minSpringLength, const float weldedForceScalar, const float weldedVerticalForce) :
+        Super(super),
+        Force(force),
+        VerticalForce(verticalForce),
+        Torque(torque),
+        RelativeForceNormalDirection(relativeForceNormalDirection),
+        MaxSpringLength(maxSpringLength),
+        ConstantForce(constantForce),
+        MinSpringLength(minSpringLength),
+        WeldedForceScalar(weldedForceScalar),
+        WeldedVerticalForce(weldedVerticalForce) {}
+    explicit constexpr SpringWrapper(const SpringWrapper* archetype) :
+        Super(archetype),
+        Force(archetype->Force),
+        VerticalForce(archetype->VerticalForce),
+        Torque(archetype->Torque),
+        RelativeForceNormalDirection(archetype->RelativeForceNormalDirection),
+        MaxSpringLength(archetype->MaxSpringLength),
+        ConstantForce(archetype->ConstantForce),
+        MinSpringLength(archetype->MinSpringLength),
+        WeldedForceScalar(archetype->WeldedForceScalar),
+        WeldedVerticalForce(archetype->WeldedVerticalForce) {}
+
+    bool Render() override;
+    void Reset() override;
+    void Update(std::uintptr_t item) const override;
+    void Multiply(float forceMultiplier, float rangeMultiplier, float durationMultiplier) override;
 
     float Force;
     float VerticalForce;
@@ -56,10 +115,13 @@ class BallCarSpringWrapper : public SpringWrapper
 {
     using Super = SpringWrapper;
 public:
-    bool Render();
-    void Reset(BallCarSpringWrapper def);
-    void Update(BallCarSpringPickup item) const;
-    void Multiply(BallCarSpringWrapper def, float forceMultiplier, float rangeMultiplier, float durationMultiplier);
+    constexpr BallCarSpringWrapper(const Super& super) : Super(super) {}
+    explicit constexpr BallCarSpringWrapper(const BallCarSpringWrapper* archetype) : Super(archetype) {}
+
+    bool Render() override;
+    void Reset() override;
+    void Update(std::uintptr_t item) const override;
+    void Multiply(float forceMultiplier, float rangeMultiplier, float durationMultiplier) override;
 };
 
 
@@ -67,10 +129,13 @@ class BoostOverrideWrapper : public TargetedWrapper
 {
     using Super = TargetedWrapper;
 public:
-    bool Render();
-    void Reset(BoostOverrideWrapper def);
-    void Update(BoostOverridePickup item) const;
-    void Multiply(BoostOverrideWrapper def, float forceMultiplier, float rangeMultiplier, float durationMultiplier);
+    constexpr BoostOverrideWrapper(const Super& super) : Super(super) {}
+    explicit constexpr BoostOverrideWrapper(const BoostOverrideWrapper* archetype) : Super(archetype) {}
+
+    bool Render() override;
+    void Reset() override;
+    void Update(std::uintptr_t item) const override;
+    void Multiply(float forceMultiplier, float rangeMultiplier, float durationMultiplier) override;
 };
 
 
@@ -78,10 +143,22 @@ class BallFreezeWrapper : public TargetedWrapper
 {
     using Super = TargetedWrapper;
 public:
-    bool Render();
-    void Reset(BallFreezeWrapper def);
-    void Update(BallFreezePickup item) const;
-    void Multiply(BallFreezeWrapper def, float forceMultiplier, float rangeMultiplier, float durationMultiplier);
+    constexpr BallFreezeWrapper(const Super& super, const bool maintainMomentum, const float timeToStop,
+        const float stopMomentumPercentage) :
+        Super(super),
+        MaintainMomentum(maintainMomentum),
+        TimeToStop(timeToStop),
+        StopMomentumPercentage(stopMomentumPercentage) {}
+    explicit constexpr BallFreezeWrapper(const BallFreezeWrapper* archetype) :
+        Super(archetype),
+        MaintainMomentum(archetype->MaintainMomentum),
+        TimeToStop(archetype->TimeToStop),
+        StopMomentumPercentage(archetype->StopMomentumPercentage) {}
+
+    bool Render() override;
+    void Reset() override;
+    void Update(std::uintptr_t item) const override;
+    void Multiply(float forceMultiplier, float rangeMultiplier, float durationMultiplier) override;
 
     bool MaintainMomentum;
     float TimeToStop;
@@ -93,10 +170,24 @@ class GrapplingHookWrapper : public TargetedWrapper
 {
     using Super = TargetedWrapper;
 public:
-    bool Render();
-    void Reset(GrapplingHookWrapper def);
-    void Update(GrapplingHookPickup item) const;
-    void Multiply(GrapplingHookWrapper def, float forceMultiplier, float rangeMultiplier, float durationMultiplier);
+    constexpr GrapplingHookWrapper(const Super& super, const float impulse, const float force,
+        const float maxRopeLength, const float predictionSpeed) :
+        Super(super),
+        Impulse(impulse),
+        Force(force),
+        MaxRopeLength(maxRopeLength),
+        PredictionSpeed(predictionSpeed) {}
+    explicit constexpr GrapplingHookWrapper(const GrapplingHookWrapper* archetype) :
+        Super(archetype),
+        Impulse(archetype->Impulse),
+        Force(archetype->Force),
+        MaxRopeLength(archetype->MaxRopeLength),
+        PredictionSpeed(archetype->PredictionSpeed) {}
+
+    bool Render() override;
+    void Reset() override;
+    void Update(std::uintptr_t item) const override;
+    void Multiply(float forceMultiplier, float rangeMultiplier, float durationMultiplier) override;
 
     float Impulse;
     float Force;
@@ -109,10 +200,21 @@ class GravityWrapper : public RumbleWrapper
 {
     using Super = RumbleWrapper;
 public:
-    bool Render();
-    void Reset(GravityWrapper def);
-    void Update(GravityPickup item) const;
-    void Multiply(GravityWrapper def, float forceMultiplier, float rangeMultiplier, float durationMultiplier);
+    constexpr GravityWrapper(const Super& super, const float ballGravity, const float range, const bool deactivateOnTouch) :
+        Super(super),
+        BallGravity(ballGravity),
+        Range(range),
+        DeactivateOnTouch(deactivateOnTouch) {}
+    explicit constexpr GravityWrapper(const GravityWrapper* archetype) :
+        Super(archetype),
+        BallGravity(archetype->BallGravity),
+        Range(archetype->Range),
+        DeactivateOnTouch(archetype->DeactivateOnTouch) {}
+
+    bool Render() override;
+    void Reset() override;
+    void Update(std::uintptr_t item) const override;
+    void Multiply(float forceMultiplier, float rangeMultiplier, float durationMultiplier) override;
 
     float BallGravity;
     float Range;
@@ -124,10 +226,13 @@ class BallLassoWrapper : public SpringWrapper
 {
     using Super = SpringWrapper;
 public:
-    bool Render();
-    void Reset(BallLassoWrapper def);
-    void Update(BallLassoPickup item) const;
-    void Multiply(BallLassoWrapper def, float forceMultiplier, float rangeMultiplier, float durationMultiplier);
+    constexpr BallLassoWrapper(const Super& super) : Super(super) {}
+    explicit constexpr BallLassoWrapper(const BallLassoWrapper* archetype) : Super(archetype) {}
+
+    bool Render() override;
+    void Reset() override;
+    void Update(std::uintptr_t item) const override;
+    void Multiply(float forceMultiplier, float rangeMultiplier, float durationMultiplier) override;
 };
 
 
@@ -135,10 +240,17 @@ class BattarangWrapper : public BallLassoWrapper
 {
     using Super = BallLassoWrapper;
 public:
-    bool Render();
-    void Reset(BattarangWrapper def);
-    void Update(BattarangPickup item) const;
-    void Multiply(BattarangWrapper def, float forceMultiplier, float rangeMultiplier, float durationMultiplier);
+    constexpr BattarangWrapper(const Super& super, const float spinSpeed) :
+        Super(super),
+        SpinSpeed(spinSpeed) {}
+    explicit constexpr BattarangWrapper(const BattarangWrapper* archetype) :
+        Super(archetype),
+        SpinSpeed(archetype->SpinSpeed) {}
+
+    bool Render() override;
+    void Reset() override;
+    void Update(std::uintptr_t item) const override;
+    void Multiply(float forceMultiplier, float rangeMultiplier, float durationMultiplier) override;
 
     float SpinSpeed;
 };
@@ -148,10 +260,26 @@ class HitForceWrapper : public RumbleWrapper
 {
     using Super = RumbleWrapper;
 public:
-    bool Render();
-    void Reset(HitForceWrapper def);
-    void Update(HitForcePickup item) const;
-    void Multiply(HitForceWrapper def, float forceMultiplier, float rangeMultiplier, float durationMultiplier);
+    constexpr HitForceWrapper(const Super& super, const bool ballForce, const bool carForce, const bool demolishCars,
+        const float ballHitForce, const float carHitForce) :
+        Super(super),
+        BallForce(ballForce),
+        CarForce(carForce),
+        DemolishCars(demolishCars),
+        BallHitForce(ballHitForce),
+        CarHitForce(carHitForce) {}
+    explicit constexpr HitForceWrapper(const HitForceWrapper* archetype) :
+        Super(archetype),
+        BallForce(archetype->BallForce),
+        CarForce(archetype->CarForce),
+        DemolishCars(archetype->DemolishCars),
+        BallHitForce(archetype->BallHitForce),
+        CarHitForce(archetype->CarHitForce) {}
+
+    bool Render() override;
+    void Reset() override;
+    void Update(std::uintptr_t item) const override;
+    void Multiply(float forceMultiplier, float rangeMultiplier, float durationMultiplier) override;
 
     bool BallForce;
     bool CarForce;
@@ -165,10 +293,28 @@ class VelcroWrapper : public RumbleWrapper
 {
     using Super = RumbleWrapper;
 public:
-    bool Render();
-    void Reset(VelcroWrapper def);
-    void Update(VelcroPickup item) const;
-    void Multiply(VelcroWrapper def, float forceMultiplier, float rangeMultiplier, float durationMultiplier);
+    constexpr VelcroWrapper(const Super& super, const float afterHitDuration, const float postBreakDuration,
+        const float minBreakForce, const float minBreakTime, const float attachTime, const float breakTime) :
+        Super(super),
+        AfterHitDuration(afterHitDuration),
+        PostBreakDuration(postBreakDuration),
+        MinBreakForce(minBreakForce),
+        MinBreakTime(minBreakTime),
+        AttachTime(attachTime),
+        BreakTime(breakTime) {}
+    explicit constexpr VelcroWrapper(const VelcroWrapper* archetype) :
+        Super(archetype),
+        AfterHitDuration(archetype->AfterHitDuration),
+        PostBreakDuration(archetype->PostBreakDuration),
+        MinBreakForce(archetype->MinBreakForce),
+        MinBreakTime(archetype->MinBreakTime),
+        AttachTime(archetype->AttachTime),
+        BreakTime(archetype->BreakTime) {}
+
+    bool Render() override;
+    void Reset() override;
+    void Update(std::uintptr_t item) const override;
+    void Multiply(float forceMultiplier, float rangeMultiplier, float durationMultiplier) override;
 
     float AfterHitDuration;
     float PostBreakDuration;
@@ -183,10 +329,13 @@ class SwapperWrapper : public TargetedWrapper
 {
     using Super = TargetedWrapper;
 public:
-    bool Render();
-    void Reset(SwapperWrapper def);
-    void Update(SwapperPickup item) const;
-    void Multiply(SwapperWrapper def, float forceMultiplier, float rangeMultiplier, float durationMultiplier);
+    constexpr SwapperWrapper(const Super& super) : Super(super) {}
+    explicit constexpr SwapperWrapper(const SwapperWrapper* archetype) : Super(archetype) {}
+
+    bool Render() override;
+    void Reset() override;
+    void Update(std::uintptr_t item) const override;
+    void Multiply(float forceMultiplier, float rangeMultiplier, float durationMultiplier) override;
 };
 
 
@@ -194,10 +343,35 @@ class TornadoWrapper : public RumbleWrapper
 {
     using Super = RumbleWrapper;
 public:
-    bool Render();
-    void Reset(TornadoWrapper def);
-    void Update(TornadoPickup item) const;
-    void Multiply(TornadoWrapper def, float forceMultiplier, float rangeMultiplier, float durationMultiplier);
+    constexpr TornadoWrapper(const Super& super, const float height, const float radius, const float rotationalForce,
+        const float torque, const Vector& fxScale, const Vector& meshScale, const float maxVelocityOffset,
+        const float ballMultiplier, const float velocityEase) :
+        Super(super),
+        Height(height),
+        Radius(radius),
+        RotationalForce(rotationalForce),
+        Torque(torque),
+        FxScale(fxScale),
+        MeshScale(meshScale),
+        MaxVelocityOffset(maxVelocityOffset),
+        BallMultiplier(ballMultiplier),
+        VelocityEase(velocityEase) {}
+    explicit constexpr TornadoWrapper(const TornadoWrapper* archetype) :
+        Super(archetype),
+        Height(archetype->Height),
+        Radius(archetype->Radius),
+        RotationalForce(archetype->RotationalForce),
+        Torque(archetype->Torque),
+        FxScale(archetype->FxScale),
+        MeshScale(archetype->MeshScale),
+        MaxVelocityOffset(archetype->MaxVelocityOffset),
+        BallMultiplier(archetype->BallMultiplier),
+        VelocityEase(archetype->VelocityEase) {}
+
+    bool Render() override;
+    void Reset() override;
+    void Update(std::uintptr_t item) const override;
+    void Multiply(float forceMultiplier, float rangeMultiplier, float durationMultiplier) override;
 
     float Height;
     float Radius;
@@ -215,10 +389,13 @@ class HauntedWrapper : public GravityWrapper
 {
     using Super = GravityWrapper;
 public:
-    bool Render();
-    void Reset(HauntedWrapper def);
-    //void Update(HauntedPickup item) const;
-    void Multiply(HauntedWrapper def, float forceMultiplier, float rangeMultiplier, float durationMultiplier);
+    constexpr HauntedWrapper(const Super& super) : Super(super) {}
+    explicit constexpr HauntedWrapper(const HauntedWrapper* archetype) : Super(archetype) {}
+
+    bool Render() override;
+    void Reset() override;
+    //void Update(std::uintptr_t item) const override;
+    void Multiply(float forceMultiplier, float rangeMultiplier, float durationMultiplier) override;
 };
 
 
@@ -226,8 +403,11 @@ class RugbyWrapper : public RumbleWrapper
 {
     using Super = RumbleWrapper;
 public:
-    bool Render();
-    void Reset(RugbyWrapper def);
-    //void Update(RugbyPickup item) const;
-    void Multiply(RugbyWrapper def, float forceMultiplier, float rangeMultiplier, float durationMultiplier);
+    constexpr RugbyWrapper(const Super& super) : Super(super) {}
+    explicit constexpr RugbyWrapper(const RugbyWrapper* archetype) : Super(archetype) {}
+
+    bool Render() override;
+    void Reset() override;
+    //void Update(std::uintptr_t item) const override;
+    void Multiply(float forceMultiplier, float rangeMultiplier, float durationMultiplier) override;
 };

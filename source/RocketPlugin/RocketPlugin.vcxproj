@@ -63,9 +63,9 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <AdditionalIncludeDirectories>.\;..\External;..\External\BakkesModSDK\include;..\External\BakkesModAdditions\include;..\External\fmt\include;..\External\simdjson\singleheader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;..\External;..\External\BakkesModAdditions\include;..\External\BakkesModSDK\include;..\External\fmt\include;..\External\simdjson\singleheader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -81,12 +81,6 @@
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>..\External\BakkesModSDK\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
-    <PostBuildEvent>
-      <Command>
-      </Command>
-      <Message>
-      </Message>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -96,9 +90,9 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <AdditionalIncludeDirectories>.\;..\External;..\External\BakkesModSDK\include;..\External\BakkesModAdditions\include;..\External\fmt\include;..\External\simdjson\singleheader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;..\External;..\External\BakkesModAdditions\include;..\External\BakkesModSDK\include;..\External\fmt\include;..\External\simdjson\singleheader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -113,21 +107,32 @@
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>..\External\BakkesModSDK\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
-    <PreBuildEvent>
-      <Message>
-      </Message>
-      <Command>
-      </Command>
-    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\External\ImGui\imconfig.h" />
+    <ClInclude Include="..\External\ImGui\imgui.h" />
+    <ClInclude Include="..\External\ImGui\imgui_additions.h" />
+    <ClInclude Include="..\External\ImGui\imgui_internal.h" />
+    <ClInclude Include="..\External\ImGui\imgui_rangeslider.h" />
+    <ClInclude Include="..\External\ImGui\imgui_searchablecombo.h" />
+    <ClInclude Include="..\External\ImGui\imstb_rectpack.h" />
+    <ClInclude Include="..\External\ImGui\imstb_textedit.h" />
+    <ClInclude Include="..\External\ImGui\imstb_truetype.h" />
     <ClInclude Include="..\External\simdjson\singleheader\simdjson.h" />
-    <ClInclude Include="Config.h" />
+    <ClInclude Include="ExternalModules\ExternalModules.h" />
+    <ClInclude Include="RPConfig.h" />
     <ClInclude Include="GameModes\BoostShare.h" />
     <ClInclude Include="GameModes\RocketGameMode.h" />
     <ClInclude Include="GameModes\RumbleItems\RumbleItems.h" />
     <ClInclude Include="GameModes\SacredGround.h" />
     <ClInclude Include="GameModes\SmallCars.h" />
+    <ClInclude Include="Modules\BallMods.h" />
+    <ClInclude Include="Modules\BotSettings.h" />
+    <ClInclude Include="Modules\CarPhysicsMods.h" />
+    <ClInclude Include="Modules\GameControls.h" />
+    <ClInclude Include="Modules\LocalMatchSettings.h" />
+    <ClInclude Include="Modules\PlayerMods.h" />
+    <ClInclude Include="Modules\RocketPluginModule.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="RocketPlugin.h" />
     <ClInclude Include="Networking\Networking.h" />
@@ -139,35 +144,39 @@
     <ClInclude Include="GameModes\KeepAway.h" />
     <ClInclude Include="GameModes\Tag.h" />
     <ClInclude Include="GameModes\Zombies.h" />
-    <ClInclude Include="..\External\ImGui\imconfig.h" />
-    <ClInclude Include="..\External\ImGui\imgui.h" />
-    <ClInclude Include="..\External\ImGui\imgui_additions.h" />
-    <ClInclude Include="..\External\ImGui\imgui_internal.h" />
-    <ClInclude Include="..\External\ImGui\imgui_rangeslider.h" />
-    <ClInclude Include="..\External\ImGui\imgui_searchablecombo.h" />
-    <ClInclude Include="..\External\ImGui\imstb_rectpack.h" />
-    <ClInclude Include="..\External\ImGui\imstb_textedit.h" />
-    <ClInclude Include="..\External\ImGui\imstb_truetype.h" />
     <ClInclude Include="Version.h" />
     <ClInclude Include="Resource.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\External\simdjson\singleheader\simdjson.cpp">
-      <TreatWarningAsError Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</TreatWarningAsError>
-      <TreatWarningAsError Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</TreatWarningAsError>
-    </ClCompile>
-    <ClCompile Include="Config.cpp" />
+    <ClCompile Include="..\External\ImGui\imgui.cpp" />
+    <ClCompile Include="..\External\ImGui\imgui_additions.cpp" />
+    <ClCompile Include="..\External\ImGui\imgui_demo.cpp" />
+    <ClCompile Include="..\External\ImGui\imgui_draw.cpp" />
+    <ClCompile Include="..\External\ImGui\imgui_rangeslider.cpp" />
+    <ClCompile Include="..\External\ImGui\imgui_searchablecombo.cpp" />
+    <ClCompile Include="..\External\ImGui\imgui_widgets.cpp" />
+    <ClCompile Include="..\External\simdjson\singleheader\simdjson.cpp" />
+    <ClCompile Include="ExternalModules\ExternalFunctions.cpp" />
+    <ClCompile Include="ExternalModules\ExternalModules.cpp" />
+    <ClCompile Include="ExternalModules\RPTests.cpp" />
+    <ClCompile Include="RPConfig.cpp" />
     <ClCompile Include="GameModes\BoostShare.cpp" />
     <ClCompile Include="GameModes\RumbleItems\RumbleItems.cpp" />
     <ClCompile Include="GameModes\SacredGround.cpp" />
     <ClCompile Include="GameModes\SmallCars.cpp" />
+    <ClCompile Include="Modules\BallMods.cpp" />
+    <ClCompile Include="Modules\BotSettings.cpp" />
+    <ClCompile Include="Modules\CarPhysicsMods.cpp" />
+    <ClCompile Include="Modules\GameControls.cpp" />
+    <ClCompile Include="Modules\LocalMatchSettings.cpp" />
+    <ClCompile Include="Modules\PlayerMods.cpp" />
+    <ClCompile Include="Modules\RocketPluginModule.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="RocketPlugin.cpp" />
     <ClCompile Include="RocketPluginGUI.cpp" />
-    <ClCompile Include="ExternalFunctions.cpp" />
     <ClCompile Include="Networking\Networking.cpp" />
     <ClCompile Include="Networking\P2PHost.cpp" />
     <ClCompile Include="Networking\UPnPClient.cpp" />
@@ -179,13 +188,6 @@
     <ClCompile Include="GameModes\KeepAway.cpp" />
     <ClCompile Include="GameModes\Tag.cpp" />
     <ClCompile Include="GameModes\Zombies.cpp" />
-    <ClCompile Include="..\External\ImGui\imgui.cpp" />
-    <ClCompile Include="..\External\ImGui\imgui_additions.cpp" />
-    <ClCompile Include="..\External\ImGui\imgui_demo.cpp" />
-    <ClCompile Include="..\External\ImGui\imgui_draw.cpp" />
-    <ClCompile Include="..\External\ImGui\imgui_rangeslider.cpp" />
-    <ClCompile Include="..\External\ImGui\imgui_searchablecombo.cpp" />
-    <ClCompile Include="..\External\ImGui\imgui_widgets.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="GameModes\RumbleItems\RumbleConstants.inc" />

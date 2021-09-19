@@ -2,7 +2,7 @@
 // A zombie survival game mode for Rocket Plugin.
 //
 // Author:        Stanbroek
-// Version:       0.2.3 16/04/21
+// Version:       0.2.4 28/08/21
 // BMSDK version: 95
 
 #include "Zombies.h"
@@ -12,13 +12,13 @@
 void Zombies::RenderOptions()
 {
     if (ImGui::InputInt("# Zombies", &numZombies)) {
-        rocketPlugin->Execute([this, newNumZombies = numZombies](GameWrapper*) {
+        Execute([this, newNumZombies = numZombies](GameWrapper*) {
             prepareZombies(newNumZombies);
         });
     }
     std::vector<std::string> playersNames;
-    if (rocketPlugin->IsInGame()) {
-        playersNames = rocketPlugin->GetPlayersNames();
+    if (Outer()->IsInGame()) {
+        playersNames = Outer()->playerMods.GetPlayersNames();
     }
     ImGui::Checkbox("Zombies Have Unlimited Boost", &zombiesHaveUnlimitedBoost);
     ImGui::Combo("Player to hunt", &selectedPlayer, playersNames, "No players found");
@@ -37,14 +37,17 @@ bool Zombies::IsActive()
 void Zombies::Activate(const bool active)
 {
     if (active && !isActive) {
-        HookEvent("Function TAGame.GameEvent_TA.EventMatchStarted", [this](const std::string&) {
-            prepareZombies(numZombies);
-        });
-        HookEventWithCaller<ServerWrapper>("Function GameEvent_Soccar_TA.Active.Tick",
+        HookEvent(
+            "Function TAGame.GameEvent_TA.EventMatchStarted", [this](const std::string&) {
+                prepareZombies(numZombies);
+            });
+        HookEventWithCaller<ServerWrapper>(
+            "Function GameEvent_Soccar_TA.Active.Tick",
             [this](const ServerWrapper& caller, void*, const std::string&) {
                 onTick(caller);
             });
-        HookEventWithCaller<ServerWrapper>("Function GameEvent_Soccar_TA.Countdown.BeginState",
+        HookEventWithCaller<ServerWrapper>(
+            "Function GameEvent_Soccar_TA.Countdown.BeginState",
             [this](const ServerWrapper& caller, void*, const std::string&) {
                 onTick(caller);
             });
@@ -54,7 +57,7 @@ void Zombies::Activate(const bool active)
         UnhookEvent("Function TAGame.GameEvent_TA.EventMatchStarted");
         UnhookEvent("Function GameEvent_Soccar_TA.Active.Tick");
         UnhookEvent("Function GameEvent_Soccar_TA.Countdown.BeginState");
-        rocketPlugin->ResetBalls();
+        Outer()->gameControls.ResetBalls();
     }
 
     isActive = active;
@@ -73,41 +76,31 @@ std::string Zombies::GetGameModeName()
 /// <param name="newNumZombies">Number of zombies that chase you</param>
 void Zombies::prepareZombies(const int newNumZombies) const
 {
-    ServerWrapper game = gameWrapper->GetGameEventAsServer();
-    if (game.IsNull()) {
-        ERROR_LOG("could not get the game");
-        return;
-    }
+    ServerWrapper game = Outer()->GetGame();
+    BMCHECK(game);
 
     game.SetUnfairTeams(true);
     game.SetbFillWithAI(true);
-    rocketPlugin->SetNumBotsPerTeam(newNumZombies);
-    rocketPlugin->SetBallsScale(0.01f);
-    TRACE_LOG("set number of bots to {}", newNumZombies);
+    Outer()->botSettings.SetNumBotsPerTeam(newNumZombies);
+    Outer()->ballMods.SetBallsScale(0.01f);
+    BM_TRACE_LOG("set number of bots to {:d}", newNumZombies);
 }
 
 
 /// <summary>Updates the game every game tick.</summary>
 void Zombies::onTick(ServerWrapper server)
 {
-    if (server.IsNull()) {
-        ERROR_LOG("could not get the server");
-        return;
-    }
+    BMCHECK(server);
 
     std::vector<PriWrapper> players;
     for (PriWrapper pri : server.GetPRIs()) {
         if (pri.IsNull() || pri.GetbBot()) {
             if (zombiesHaveUnlimitedBoost) {
                 CarWrapper car = pri.GetCar();
-                if (car.IsNull()) {
-                    continue;
-                }
+                BMCHECK_LOOP(car);
 
                 BoostWrapper boostComponent = car.GetBoostComponent();
-                if (boostComponent.IsNull()) {
-                    continue;
-                }
+                BMCHECK_LOOP(boostComponent);
 
                 boostComponent.SetBoostAmount(100.0f);
             }
@@ -119,21 +112,15 @@ void Zombies::onTick(ServerWrapper server)
 
     if (selectedPlayer >= players.size()) {
         selectedPlayer = 0;
-        ERROR_LOG("selected player is out of range");
+        BM_ERROR_LOG("selected player is out of range");
         return;
     }
 
     CarWrapper target = players[selectedPlayer].GetCar();
-    if (target.IsNull()) {
-        ERROR_LOG("could not get the target");
-        return;
-    }
+    BMCHECK(target);
 
     BallWrapper ball = server.GetBall();
-    if (ball.IsNull()) {
-        ERROR_LOG("could not get the ball");
-        return;
-    }
+    BMCHECK(ball);
 
     ball.SetVelocity(Vector(0, 0, 1));
     ball.SetLocation(target.GetLocation());

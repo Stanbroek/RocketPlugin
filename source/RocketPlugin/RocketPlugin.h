@@ -2,6 +2,14 @@
 #include "Version.h"
 #include "Networking/Networking.h"
 
+#include "Modules/RocketPluginModule.h"
+#include "Modules/GameControls.h"
+#include "Modules/LocalMatchSettings.h"
+#include "Modules/BotSettings.h"
+#include "Modules/BallMods.h"
+#include "Modules/PlayerMods.h"
+#include "Modules/CarPhysicsMods.h"
+
 constexpr const char* PLUGIN_VERSION = VER_FILE_VERSION_STR;
 
 constexpr char MARKED_INCOMPLETE = '*';
@@ -33,20 +41,9 @@ class RocketPlugin final : public BakkesMod::Plugin::BakkesModPlugin, public Bak
     friend RPConfig;
     friend RocketGameMode;
 
-    /* File Helpers */
-public:
-    static bool HasExtension(const std::string& fileExtension, const std::vector<std::string>& extensions);
-    static std::vector<std::filesystem::path> IterateDirectory(const std::filesystem::path& directory,
-        const std::vector<std::string>& extensions,
-        int depth = 0, int maxDepth = 3);
-    static std::vector<std::filesystem::path> GetFilesFromDir(const std::filesystem::path& directory,
-        int numExtension, ...);
-private:
-
     /* Map File Helpers */
 public:
 private:
-    bool isMapJoinable(const std::filesystem::path& map);
     std::vector<std::filesystem::path> getWorkshopMaps(const std::filesystem::path& workshopPath,
         const std::vector<std::string>& extensions = { ".upk", ".udk" },
         const std::string& preferredExtension = ".udk");
@@ -75,10 +72,12 @@ private:
     std::wstring getPlayerNickname(uint64_t uniqueId) const;
     void getSubscribedWorkshopMapsAsync(bool getSubscribedMaps = false);
 
-    struct WorkshopMap {
+    struct WorkshopMap
+    {
         std::string Title;
         uint64_t Owner = 0;
     };
+
     std::vector<uint64_t> publishedFileID;
     // Maps workshop id to workshop info.
     std::unordered_map<uint64_t, WorkshopMap> subscribedWorkshopMaps;
@@ -104,6 +103,8 @@ private:
     void broadcastJoining();
 
     bool isHostingLocalGame() const;
+    bool isCurrentMapModded() const;
+    bool isMapJoinable(const std::filesystem::path& map);
     bool preLoadMap(const std::filesystem::path& pathName, bool overrideDupe = false, bool warnIfExists = false);
     void copyMap(const std::filesystem::path& map = "");
     void onGameEventInit(const ServerWrapper& server);
@@ -113,124 +114,50 @@ private:
     std::string joiningPartyPswd;
     bool failedToGetMapPackageFileCache = false;
 
-    /* Game Controls */
+    /* Modules */
 public:
-    bool IsInGame(bool allowOnlineGame = false) const;
     ServerWrapper GetGame(bool allowOnlineGame = false) const;
-    void ForceOvertime() const;
-    void PauseServer() const;
-    void ResetMatch() const;
-    void EndMatch() const;
-    void ResetPlayers() const;
-    void ResetBalls() const;
-private:
+    bool IsInGame(bool allowOnlineGame = false) const;
 
-    /* Match Settings */
-public:
-    void SetMaxPlayers(int newNumPlayers) const;
-    int GetMaxPlayers() const;
-    void SetMaxTeamSize(int newTeamSize) const;
-    int GetMaxTeamSize() const;
-    void SetRespawnTime(int newRespawnTime) const;
-    int GetRespawnTime() const;
-    void SetScore(int team, int newScore) const;
-    int GetScore(int team) const;
-    void SetScoreBlue(int newScore) const;
-    int GetScoreBlue() const;
-    void SetScoreOrange(int newScore) const;
-    int GetScoreOrange() const;
-    void SetGameTimeRemaining(int newGameTimeRemaining) const;
-    int GetGameTimeRemaining() const;
-    void SetIsGoalDelayDisabled(bool isGoalDelayDisabled) const;
-    bool GetIsGoalDelayDisabled() const;
-    void SetIsUnlimitedTime(bool isUnlimitedTime) const;
-    bool GetIsUnlimitedTime() const;
-private:
-
-    /* Bots */
-public:
-    void SetMaxNumBots(bool newMaxNumBots) const;
-    int GetMaxNumBots() const;
-    void SetNumBotsPerTeam(int newNumBotsPerTeam) const;
-    int GetNumBotsPerTeam() const;
-    void SetIsAutoFilledWithBots(bool isAutoFilledWithBots) const;
-    bool GetIsAutoFilledWithBots() const;
-    void SetIsUnfairTeams(bool isUnfairTeams) const;
-    bool GetIsUnfairTeams() const;
-    void FreezeBots() const;
-private:
-
-    /* Ball Mods */
-public:
-    void SetNumBalls(int newNumBalls) const;
-    int GetNumBalls() const;
-    void SetBallsScale(float newBallsScale) const;
-    float GetBallsScale() const;
-    void SetMaxBallVelocity(float newMaxBallVelocity) const;
-    float GetMaxBallVelocity() const;
-private:
-
-    /* Player Mods */
-public:
-    std::vector<PriWrapper> GetPlayers(bool includeBots = false, bool mustBeAlive = false) const;
-    std::vector<std::string> GetPlayersNames(bool includeBots = false, bool mustBeAlive = false) const;
-    std::vector<std::string> GetPlayersNames(const std::vector<PriWrapper>& players) const;
-    void SetIsAdmin(PriWrapper player, bool isAdmin) const;
-    bool GetIsAdmin(PriWrapper player) const;
-    void SetIsHidden(PriWrapper player, bool isHidden) const;
-    bool GetIsHidden(PriWrapper player) const;
-    void Demolish(PriWrapper player) const;
-private:
-
-    /* Car Physics mods */
-public:
-    struct CarPhysics {
-        CarPhysics(RocketPlugin* rp, PriWrapper player);
-
-        float CarScale;
-        bool CarHasCollision;
-        bool CarIsFrozen;
-        float TorqueRate;
-        float MaxCarVelocity;
-        float GroundStickyForce;
-        float WallStickyForce;
-    };
-    void SetPhysics(CarWrapper car);
-    CarPhysics GetPhysics(PriWrapper player);
-    CarPhysics& GetPhysicsCache(PriWrapper player);
-    void SetbCarCollision(PriWrapper player, bool carHasCollision);
-    bool GetbCarCollision(PriWrapper player) const;
-    void SetCarScale(PriWrapper player, float newCarScale, bool shouldRespawn = false);
-    float GetCarScale(PriWrapper player) const;
-    void SetCarIsFrozen(PriWrapper player, bool carIsFrozen);
-    bool GetCarIsFrozen(PriWrapper player) const;
-    void SetTorqueRate(PriWrapper player, float torqueRate);
-    float GetTorqueRate(PriWrapper player) const;
-    void SetMaxCarVelocity(PriWrapper player, float maxCarVelocity);
-    float GetMaxCarVelocity(PriWrapper player) const;
-    StickyForceData GetStickyForce(PriWrapper player) const;
-    void SetGroundStickyForce(PriWrapper player, float groundStickyForce);
-    float GetGroundStickyForce(PriWrapper player) const;
-    void SetWallStickyForce(PriWrapper player, float wallStickyForce);
-    float GetWallStickyForce(PriWrapper player) const;
+    GameControls gameControls;
+    LocalMatchSettings matchSettings;
+    BotSettings botSettings;
+    BallMods ballMods;
+    PlayerMods playerMods;
+    CarPhysicsMods carPhysicsMods;
 private:
 
     /* BakkesMod Plugin Overrides */
 public:
     CATCH_DEFAULT_BM_FUNCTIONS;
+
+    void UnhookEvent(const std::string& eventName) const
+    {
+        gameWrapper->UnhookEvent(eventName);
+    }
+
+    void UnhookEventPost(const std::string& eventName) const
+    {
+        gameWrapper->UnhookEventPost(eventName);
+    }
+
 private:
+    void registerCVars();
+    void registerNotifiers();
+    void registerHooks();
+    void registerExternalCVars();
     void registerExternalNotifiers();
     void registerExternalHooks();
 
     /*
      * Rocket Game Mode functions, implementation is in RocketGameMode.h.
      */
-     /* Rocket Game Mode Hooks */
+    /* Rocket Game Mode Hooks */
 public:
 protected:
-    typedef std::function<void(void* caller, void* params, std::string eventName)> Event;
-    std::unordered_map<std::string, std::unordered_map<std::type_index, Event>> callbacksPre;
-    std::unordered_map<std::string, std::unordered_map<std::type_index, Event>> callbacksPost;
+    using EventCallback = std::function<void(void* caller, void* params, std::string eventName)>;
+    std::unordered_map<std::string, std::unordered_map<std::type_index, EventCallback>> callbacksPre;
+    std::unordered_map<std::string, std::unordered_map<std::type_index, EventCallback>> callbacksPost;
 private:
 
     /*
@@ -265,18 +192,21 @@ public:
     void PushError(const std::string& message);
 
 private:
-    void renderMultiplayerTab();
+    void refreshGameSettingsConstants();
     bool renderCustomMapsSelection(std::map<std::filesystem::path, std::string>& customMaps,
-        std::filesystem::path& currentCustomMap, bool& refreshCustomMaps,
-        bool includeWorkshopMaps = true, bool includeCustomMaps = true);
+        std::filesystem::path& currentCustomMap, bool& refreshCustomMaps, bool includeWorkshopMaps = true,
+        bool includeCustomMaps = true);
+
+    void renderMultiplayerTab();
 
     std::queue<std::string> errors;
-    bool refreshGameSettingsConstants = true;
+    bool shouldRefreshGameSettingsConstants = true;
     std::future<std::pair<bool, std::string>> gameSettingsRequest;
 
     /* Host Settings */
 public:
-    struct GameSetting {
+    struct GameSetting
+    {
         std::string DisplayCategoryName;
         std::string InternalCategoryName;
         size_t CurrentSelected = 0;
@@ -289,8 +219,13 @@ public:
 
 private:
     void renderMultiplayerTabHost();
+    void renderMultiplayerTabHostTeamSettings();
+    void renderMultiplayerTabHostMutatorSettings();
+    void renderMultiplayerTabHostAdvancedSettings();
+    void renderMultiplayerTabHostAdvancedSettingsUPnPSettings();
+    void renderMultiplayerTabHostAdvancedSettingsP2PSettings();
+
     void loadRLConstants();
-    bool isCurrentMapModded() const;
 
     bool hostingGame = false;
     bool shouldInviteParty = false;
@@ -371,18 +306,17 @@ private:
         char IP[64];
         bool InvalidIP;
     };
+
     std::vector<P2PIP> connections;
 
     /* In Game Mods */
 public:
 private:
     void renderInGameModsTab();
-
-    /* Car Physics Mods */
-public:
-private:
-    size_t selectedPlayer = 0;
-    std::unordered_map<uint64_t, CarPhysics> carPhysics;
+    void renderInGameModsTabGameEventMods();
+    void renderInGameModsTabBallMods();
+    void renderInGameModsTabPlayerMods();
+    void renderInGameModsTabCarPhysicsMods();
 
     /* Game Modes */
 public:
@@ -397,6 +331,7 @@ public:
 
         return std::shared_ptr<Ty>();
     }
+
 private:
     void renderGameModesTab();
 

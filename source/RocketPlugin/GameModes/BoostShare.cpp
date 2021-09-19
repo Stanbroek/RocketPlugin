@@ -2,7 +2,7 @@
 // A boost sharing game mode for Rocket Plugin.
 //
 // Author:        Stanbroek
-// Version:       0.0.3 15/04/21
+// Version:       0.0.4 28/08/21
 // BMSDK version: 95
 
 #include "BoostShare.h"
@@ -11,11 +11,11 @@
 /// <summary>Renders the available options for the game mode.</summary>
 void BoostShare::RenderOptions()
 {
-    const unsigned short minBoostPool = 0;
-    const unsigned short maxBoostPool = 200;
+    constexpr unsigned short minBoostPool = 0;
+    constexpr unsigned short maxBoostPool = 200;
     ImGui::SliderScalar("boost pool", ImGuiDataType_U16, &boostPool, &minBoostPool, &maxBoostPool, "%d");
     if (ImGui::IsItemJustReleased()) {
-        gameWrapper->Execute([this](GameWrapper*) {
+        Execute([this](GameWrapper*) {
             distributeBoostPool();
         });
     }
@@ -34,13 +34,18 @@ bool BoostShare::IsActive()
 void BoostShare::Activate(const bool active)
 {
     if (active && !isActive) {
-        HookEvent("Function TAGame.GameEvent_TA.Init", [this](const std::string&) {
-            initialize();
-        });
-        HookEvent("Function GameEvent_Soccar_TA.Countdown.BeginState", [this](const std::string&) {
-            distributeBoostPool();
-        });
-        HookEventWithCaller<ServerWrapper>("Function GameEvent_Soccar_TA.Active.Tick",
+        HookEvent(
+            "Function TAGame.GameEvent_TA.Init",
+            [this](const std::string&) {
+                initialize();
+            });
+        HookEvent(
+            "Function GameEvent_Soccar_TA.Countdown.BeginState",
+            [this](const std::string&) {
+                distributeBoostPool();
+            });
+        HookEventWithCaller<ServerWrapper>(
+            "Function GameEvent_Soccar_TA.Active.Tick",
             [this](const ServerWrapper& server, void* params, const std::string&) {
                 onTick(server, params);
             });
@@ -76,34 +81,22 @@ void BoostShare::initialize() const
 /// <remarks>Gets called post 'Function GameEvent_Soccar_TA.Countdown.BeginState'.</remarks>
 void BoostShare::distributeBoostPool() const
 {
-    ServerWrapper game = gameWrapper->GetGameEventAsServer();
-    if (game.IsNull()) {
-        ERROR_LOG("could not get the game");
-        return;
-    }
+    ServerWrapper game = Outer()->GetGame();
+    BMCHECK(game);
 
     ArrayWrapper<CarWrapper> cars = game.GetCars();
-    if (cars.Count() == 0) {
-        ERROR_LOG("could not get any cars");
-        return;
-    }
+    BMCHECK_ARRAY(cars, 0);
 
     const int boostPerCar = boostPool / cars.Count();
     for (CarWrapper car : cars) {
-        if (car.IsNull()) {
-            WARNING_LOG("could not get the car");
-            continue;
-        }
+        BMCHECK_LOOP(car);
 
         BoostWrapper boostComponent = car.GetBoostComponent();
-        if (boostComponent.IsNull()) {
-            WARNING_LOG("could not get the boost component");
-            continue;
-        }
+        BMCHECK_LOOP(boostComponent);
 
         boostComponent.SetBoostAmount(static_cast<float>(boostPerCar) / 100.f);
         boostComponent.ClientGiveBoost(0);
-        TRACE_LOG("set {} there boost to {}", quote(car.GetOwnerName()), boostPerCar);
+        BM_TRACE_LOG("set {:s} there boost to {:d}", quote(car.GetOwnerName()), boostPerCar);
     }
 }
 
@@ -114,10 +107,7 @@ void BoostShare::distributeBoostPool() const
 /// <param name="params">Delay since last update</param>
 void BoostShare::onTick(ServerWrapper server, void* params) const
 {
-    if (server.IsNull()) {
-        ERROR_LOG("could not get the server");
-        return;
-    }
+    BMCHECK(server);
 
     // delta time since last tick in seconds.
     const float deltaTime = *static_cast<float*>(params);
@@ -126,20 +116,14 @@ void BoostShare::onTick(ServerWrapper server, void* params) const
     ArrayWrapper<CarWrapper> cars = server.GetCars();
     if (cars.Count() == 1) {
         CarWrapper car = cars.Get(0);
-        if (car.IsNull()) {
-            ERROR_LOG("could not get the car");
-            return;
-        }
+        BMCHECK(car);
 
         if (!car.GetInput().ActivateBoost) {
             return;
         }
 
         BoostWrapper boostComponent = car.GetBoostComponent();
-        if (boostComponent.IsNull()) {
-            ERROR_LOG("could not get the boost component");
-            return;
-        }
+        BMCHECK(boostComponent);
 
         boostComponent.SetBoostAmount(static_cast<float>(boostPool) / 100.f);
         boostComponent.ClientGiveBoost(0);
@@ -148,39 +132,27 @@ void BoostShare::onTick(ServerWrapper server, void* params) const
 
     // Otherwise distribute it among the others.
     for (CarWrapper car : cars) {
-        if (car.IsNull()) {
-            WARNING_LOG("could not get the car");
-            continue;
-        }
+        BMCHECK_LOOP(car);
 
         if (!car.GetInput().ActivateBoost) {
             continue;
         }
 
         BoostWrapper boostComponent = car.GetBoostComponent();
-        if (boostComponent.IsNull()) {
-            WARNING_LOG("could not get the boost component");
-            continue;
-        }
+        BMCHECK_LOOP(boostComponent);
 
         const std::uintptr_t carAddr = car.memory_address;
         const float boostConsumed = deltaTime * boostComponent.GetBoostConsumptionRate();
         const float boostPerCar = boostConsumed / (static_cast<float>(cars.Count()) - 1);
         for (CarWrapper otherCar : cars) {
-            if (otherCar.IsNull()) {
-                WARNING_LOG("could not get the other car");
-                continue;
-            }
+            BMCHECK_LOOP(otherCar);
 
             if (otherCar.memory_address == carAddr) {
                 continue;
             }
 
             BoostWrapper otherBoostComponent = otherCar.GetBoostComponent();
-            if (otherBoostComponent.IsNull()) {
-                WARNING_LOG("could not get the other boost component");
-                continue;
-            }
+            BMCHECK_LOOP(otherBoostComponent);
 
             otherBoostComponent.GiveBoost2(boostPerCar);
         }
@@ -189,37 +161,26 @@ void BoostShare::onTick(ServerWrapper server, void* params) const
     // Calculate current boost pool.
     float currentBoostPool = 0;
     for (CarWrapper car : cars) {
-        if (car.IsNull()) {
-            WARNING_LOG("could not get the other car");
-            continue;
-        }
+        BMCHECK_LOOP(car);
 
         BoostWrapper boostComponent = car.GetBoostComponent();
-        if (boostComponent.IsNull()) {
-            WARNING_LOG("could not get the boost component");
-            continue;
-        }
+        BMCHECK_LOOP(boostComponent);
 
         currentBoostPool += boostComponent.GetCurrentBoostAmount();
     }
 
     // Correct boost pool.
-    const float boostPerCar = (static_cast<float>(boostPool) / 100 - currentBoostPool) / static_cast<float>(cars.Count());
+    const float boostPerCar = (static_cast<float>(boostPool) / 100 - currentBoostPool) /
+                              static_cast<float>(cars.Count());
     if (boostPerCar == 0.f) {
         return;
     }
 
     for (CarWrapper car : cars) {
-        if (car.IsNull()) {
-            WARNING_LOG("could not get the other car");
-            continue;
-        }
+        BMCHECK_LOOP(car);
 
         BoostWrapper boostComponent = car.GetBoostComponent();
-        if (boostComponent.IsNull()) {
-            WARNING_LOG("could not get the boost component");
-            continue;
-        }
+        BMCHECK_LOOP(boostComponent);
 
         boostComponent.GiveBoost2(boostPerCar);
     }

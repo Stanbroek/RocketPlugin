@@ -2,7 +2,7 @@
 // A boost draining game mode for Rocket Plugin.
 //
 // Author:        Stanbroek
-// Version:       0.1.0 24/12/20
+// Version:       0.1.1 15/08/21
 // BMSDK version: 95
 
 #include "Drainage.h"
@@ -28,7 +28,8 @@ bool Drainage::IsActive()
 void Drainage::Activate(const bool active)
 {
     if (active && !isActive) {
-        HookEventWithCaller<ServerWrapper>("Function GameEvent_Soccar_TA.Active.Tick",
+        HookEventWithCaller<ServerWrapper>(
+            "Function GameEvent_Soccar_TA.Active.Tick",
             [this](const ServerWrapper& caller, void* params, const std::string&) {
                 onTick(caller, params);
             });
@@ -55,25 +56,17 @@ std::string Drainage::GetGameModeName()
 /// <param name="params">Delay since last update</param>
 void Drainage::onTick(ServerWrapper server, void* params) const
 {
-    if (server.IsNull()) {
-        ERROR_LOG("could not get the server");
-        return;
-    }
+    BMCHECK(server);
+    NULLCHECK(params);
 
     // dt since last tick in seconds
     const float dt = *static_cast<float*>(params);
 
     for (CarWrapper car : server.GetCars()) {
-        if (car.IsNull()) {
-            ERROR_LOG("could not get the car");
-            continue;
-        }
+        BMCHECK_LOOP(car);
 
         BoostWrapper boost = car.GetBoostComponent();
-        if (boost.IsNull()) {
-            ERROR_LOG("could not get the boost component");
-            continue;
-        }
+        BMCHECK_LOOP(boost);
 
         const float boostAmount = boost.GetCurrentBoostAmount();
         if (boostAmount > 0) {
@@ -82,7 +75,7 @@ void Drainage::onTick(ServerWrapper server, void* params) const
             }
         }
         else {
-            TRACE_LOG("{} exploded", quote(car.GetOwnerName()));
+            BM_TRACE_LOG("{:s} exploded", quote(car.GetOwnerName()));
             car.Demolish2(*dynamic_cast<RBActorWrapper*>(&car));
         }
     }
