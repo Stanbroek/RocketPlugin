@@ -2,7 +2,7 @@
 // A general team based boost modifier game mode for Rocket Plugin.
 //
 // Author:        Al12 and Stanbroek
-// Version:       0.1.4 15/08/21
+// Version:       0.1.5 07/04/22
 // BMSDK version: 95
 
 #include "BoostMod.h"
@@ -67,6 +67,15 @@ void BoostMod::Activate(const bool active)
 std::string BoostMod::GetGameModeName()
 {
     return "Boost Mod";
+}
+
+
+/// <summary>Gets the game modes description.</summary>
+/// <returns>The game modes description</returns>
+std::string BoostMod::GetGameModeDescription()
+{
+    return "Boost Mod lets you change the boost modifier and boost\n"
+           "limit of each team separately.";
 }
 
 

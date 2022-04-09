@@ -2,7 +2,7 @@
 // General networking calls for Rocket Plugin.
 //
 // Author:       Stanbroek
-// Version:      0.6.8 18/09/21
+// Version:      0.6.9 10/10/21
 
 #include "Networking.h"
 
@@ -15,7 +15,7 @@
 #include <iphlpapi.h>
 #pragma comment(lib, "iphlpapi.lib")
 
-#include "utils/win32_error_category.h"
+#include "utils/winsock_error_category.h"
 
 constexpr timeval NETWORK_TIMEOUT = { 3, 0 };
 
@@ -23,7 +23,7 @@ constexpr timeval NETWORK_TIMEOUT = { 3, 0 };
 /// <summary>Get the type of address that is given.</summary>
 /// <param name="addr">address to get the type of</param>
 /// <returns>The type of the given address</returns>
-Networking::DestAddrType Networking::GetDestAddrType(const char* addr)
+Networking::DestAddrType Networking::GetDestAddrType(const std::string& addr)
 {
     if (IsValidIPv4(addr)) {
         if (IsPrivateIPv4(addr)) {
@@ -394,31 +394,33 @@ std::string parseExternalIPAddressFromResponse(const std::string& buffer)
 
 /// <summary>Tries to get the external IP address.</summary>
 /// <param name="host"></param>
-/// <param name="ipAddr">Contains the external IP address when threaded</param>
+/// <param name="outIpAddr">Reference to the external IP address</param>
 /// <param name="threaded">Whether the action should be executed on another thread</param>
 /// <returns>External IP address</returns>
-std::error_code Networking::GetExternalIPAddress(const std::string& host, std::string* ipAddr, const bool threaded)
+std::future<std::error_code> Networking::GetExternalIPAddress(const std::string& host, std::string& outIpAddr, const bool threaded)
 {
+    std::launch policy = std::launch::deferred;
     if (threaded) {
-        std::thread(GetExternalIPAddress, host, ipAddr, false).detach();
+        policy |= std::launch::async;
+    }
+
+    return std::async(policy, [host, &outIpAddr]() -> std::error_code {
+        const std::string sendBuf = "GET / HTTP/1.1\r\nHost: " + host + "\r\nConnection: close\r\n\r\n";
+        char recvBuf[1024] = "";
+        const std::error_code error = NetworkRequest(
+            host, 80, IPPROTO_TCP, sendBuf.data(), sendBuf.size() + 1, recvBuf, sizeof recvBuf);
+        if (error) {
+            return error;
+        }
+
+        outIpAddr = parseExternalIPAddressFromResponse(recvBuf);
+        if (!IsExternalIPv4(outIpAddr)) {
+            outIpAddr.clear();
+            return make_win32_error_code(WSAHOST_NOT_FOUND);
+        }
+
         return make_win32_error_code(NULL);
-    }
-
-    std::string sendBuf = "GET / HTTP/1.1\r\nHost: " + host + "\r\nConnection: close\r\n\r\n";
-    char recvBuf[1024] = "";
-    const std::error_code error = NetworkRequest(
-        host, 80, IPPROTO_TCP, sendBuf.data(), sendBuf.size() + 1, recvBuf, sizeof recvBuf);
-    if (error) {
-        return error;
-    }
-
-    *ipAddr = parseExternalIPAddressFromResponse(recvBuf);
-    if (!IsExternalIPv4(*ipAddr)) {
-        ipAddr->clear();
-        return make_win32_error_code(WSAHOST_NOT_FOUND);
-    }
-
-    return make_win32_error_code(NULL);
+    });
 }
 
 
@@ -428,36 +430,35 @@ std::error_code Networking::GetExternalIPAddress(const std::string& host, std::s
 /// <param name="result">Optional request status</param>
 /// <param name="threaded">Whether the action should be executed on another thread</param>
 /// <returns>Bool with if the host was reachable</returns>
-bool Networking::PingHost(const std::string& host, unsigned short port, HostStatus* result, const bool threaded)
+std::future<bool> Networking::PingHost(const std::string& host, unsigned short port, HostStatus* result, const bool threaded)
 {
-    if (threaded && result == nullptr) {
-        return false;
-    }
+    std::launch policy = std::launch::deferred;
     if (threaded) {
+        policy |= std::launch::async;
+    }
+
+    return std::async(policy, [host, port, result]() -> bool {
         if (result != nullptr) {
             *result = HostStatus::HOST_BUSY;
         }
-        std::thread(PingHost, host, port, result, false).detach();
-        return false;
-    }
 
-    const char sendBuf[] = "Hey host guy are you alive?";
-    const std::error_code error = NetworkRequest(host, port, IPPROTO_UDP, sendBuf, sizeof sendBuf);
-    if (error) {
-        if (error == make_win32_error_code(WSAETIMEDOUT)) {
-            if (result != nullptr) {
-                *result = HostStatus::HOST_TIMEOUT;
+        constexpr char sendBuf[] = "Hey host guy are you alive?";
+        const std::error_code error = NetworkRequest(host, port, IPPROTO_UDP, sendBuf, sizeof sendBuf);
+        if (error) {
+            if (error == make_win32_error_code(WSAETIMEDOUT)) {
+                if (result != nullptr) {
+                    *result = HostStatus::HOST_TIMEOUT;
+                }
+            }
+            else if (result != nullptr) {
+                *result = HostStatus::HOST_ERROR;
             }
             return false;
         }
         if (result != nullptr) {
-            *result = HostStatus::HOST_ERROR;
+            *result = HostStatus::HOST_ONLINE;
         }
-        return false;
-    }
-    if (result != nullptr) {
-        *result = HostStatus::HOST_ONLINE;
-    }
 
-    return true;
+        return true;
+    });
 }

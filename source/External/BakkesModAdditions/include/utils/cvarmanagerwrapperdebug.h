@@ -1,20 +1,11 @@
 #pragma once
-#include <array>
 #include <memory>
 #include <string>
-#include <cstdarg>
-#include <filesystem>
-#include <utility>
+#include <thread>
 
-/// https://fmt.dev/latest/syntax.html
-#ifndef FMT_HEADER_ONLY
-    #define FMT_HEADER_ONLY
-#endif
-#pragma warning(push, 0)
 #include "fmt/format.h"
-#include "fmt/ostream.h"
 #include "fmt/color.h"
-#pragma warning(pop)
+#include "fmt/ostream.h"
 
 #pragma warning(push, 0)
 #include "bakkesmod/wrappers/cvarmanagerwrapper.h"
@@ -25,25 +16,21 @@
 static bool is_game_thread();
 static bool is_render_thread();
 
-#ifndef STRINGIZE
-    #define STRINGIZE2(s)   #s
-    #define STRINGIZE(s)    STRINGIZE2(s)
+#ifndef BM_LOG_STRINGIZE
+    #define BM_LOG_STRINGIZE2(s)   #s
+    #define BM_LOG_STRINGIZE(s)    BM_LOG_STRINGIZE2(s)
 #endif
 
-#if defined(BMDEBUG) && defined(DEBUG)
-    #error Cannot define BMDEBUG and DEBUG.
-#endif
-
-#if defined(BMDEBUG)
-    #define DEBUG
+#if defined(DEBUG) && !defined(BMDEBUG)
+    #define BMDEBUG
 #endif
 
 
-constexpr fmt::rgb TraceColor    = fmt::rgb(0x21, 0x96, 0xF3);
-constexpr fmt::rgb InfoColor     = fmt::rgb(0x9E, 0x9E, 0x9E);
-constexpr fmt::rgb WarningColor  = fmt::rgb(0xFF, 0x98, 0x00);
-constexpr fmt::rgb ErrorColor    = fmt::rgb(0xF4, 0x43, 0x36);
-constexpr fmt::rgb CriticalColor = fmt::rgb(0x9C, 0x27, 0xB0);
+constexpr fmt::rgb TraceColor    = fmt::rgb(0x21, 0x96, 0xF3);  // Blue
+constexpr fmt::rgb InfoColor     = fmt::rgb(0x9E, 0x9E, 0x9E);  // Gray
+constexpr fmt::rgb WarningColor  = fmt::rgb(0xFF, 0x98, 0x00);  // Orange
+constexpr fmt::rgb ErrorColor    = fmt::rgb(0xF4, 0x43, 0x36);  // Red
+constexpr fmt::rgb CriticalColor = fmt::rgb(0x9C, 0x27, 0xB0);  // Purple
 
 static constexpr std::string_view filename_(const std::string_view& path)
 {
@@ -52,6 +39,17 @@ static constexpr std::string_view filename_(const std::string_view& path)
 
 #ifndef PRETTY_FILENAME
     #define PRETTY_FILENAME     (filename_(__FILE__))
+#endif
+
+static constexpr std::wstring_view filenamewide_(const std::wstring_view& path)
+{
+    return path.substr(path.find_last_of(L'\\') + 1);
+}
+
+#ifndef PRETTY_FILENAME_WIDE
+    #define PRETTY_FILENAME_TO_WIDE_TEXT2(text) L##text
+    #define PRETTY_FILENAME_TO_WIDE_TEXT(text) PRETTY_FILENAME_TO_WIDE_TEXT2(text)
+    #define PRETTY_FILENAME_WIDE    (filenamewide_(PRETTY_FILENAME_TO_WIDE_TEXT(__FILE__)))
 #endif
 
 extern std::shared_ptr<int> LogLevel;
@@ -78,7 +76,7 @@ public:
 private:
     std::string get_thread() const
     {
-#ifdef DEBUG
+#ifdef BMDEBUG
         if (is_game_thread()) {
             return "Game Thread: ";
         }
@@ -146,9 +144,12 @@ public:
     }
 };
 
-#ifdef DEBUG
-    #define PREPEND_DEBUG_INFO(...) CVarManagerWrapperDebug::replace_brackets(PRETTY_FILENAME) + ": " + CVarManagerWrapperDebug::replace_brackets(__FUNCTION__) + "(), " STRINGIZE(__LINE__) ": " + __VA_ARGS__
-    //#define PREPEND_DEBUG_INFO(...) CVarManagerWrapperDebug::replace_brackets(PRETTY_FILENAME) + ": " + CVarManagerWrapperDebug::replace_brackets(__PRETTY_FUNCTION__) + "(), " STRINGIZE(__LINE__) ": " + __VA_ARGS__
+#ifdef BMDEBUG
+    #ifdef GNUC
+        #define PREPEND_DEBUG_INFO(...) CVarManagerWrapperDebug::replace_brackets(PRETTY_FILENAME) + ": " + CVarManagerWrapperDebug::replace_brackets(__PRETTY_FUNCTION__) + "(), " BM_LOG_STRINGIZE(__LINE__) ": " + __VA_ARGS__
+    #else
+        #define PREPEND_DEBUG_INFO(...) CVarManagerWrapperDebug::replace_brackets(PRETTY_FILENAME) + ": " + CVarManagerWrapperDebug::replace_brackets(__FUNCTION__) + "(), " BM_LOG_STRINGIZE(__LINE__) ": " + __VA_ARGS__
+    #endif
 #else
     #define PREPEND_DEBUG_INFO(...) __VA_ARGS__
 #endif
@@ -160,7 +161,7 @@ public:
 #define BM_ERROR_LOG(...)      GlobalCVarManager->error_log    (PREPEND_DEBUG_INFO(__VA_ARGS__))
 #define BM_CRITICAL_LOG(...)   GlobalCVarManager->critical_log (PREPEND_DEBUG_INFO(__VA_ARGS__))
 
-#ifdef DEBUG
+#ifdef BMDEBUG
     #define BM_DEBUG_TRACE_LOG(...)     BM_TRACE_LOG(std::string("*") + __VA_ARGS__)
     #define BM_DEBUG_INFO_LOG(...)      BM_INFO_LOG(std::string("*") + __VA_ARGS__)
     #define BM_DEBUG_WARNING_LOG(...)   BM_WARNING_LOG(std::string("*") + __VA_ARGS__)
@@ -189,10 +190,10 @@ public:
     if (value_check) {                      \
         log;                                \
         ret;                                \
-    }
+    } __noop
 
 #define CHECK_IF_VALUES_ARE_EQUAL(lvalue, rvalue)   \
-    CHECK_VALUE((lvalue) != (rvalue), BM_ERROR_LOG(#lvalue " == " #rvalue " failed: {}, != {}", (lvalue), (rvalue)), )
+    CHECK_VALUE((lvalue) != (rvalue), BM_ERROR_LOG(#lvalue " == " #rvalue " failed: {} != {}", (lvalue), (rvalue)), )
 
 #define CHECK_IF_VALUE_IS_NULLPTR_LOG(value, logger, ret)   \
     CHECK_VALUE((value) == nullptr, logger("could not get the " #value), ret)
@@ -352,7 +353,3 @@ public:
 
 #define BMCHECK_ARRAY_SILENT(...)   \
     EXPAND_(GET_4TH_ARG_(__VA_ARGS__, BMCHECK_ARRAY_SILENT_WITH_RETURN, BMCHECK_ARRAY_SILENT_WITHOUT_RETURN, BMCHECK_ARRAY_SILENT_WITHOUT_INDEX)(__VA_ARGS__))
-
-#ifdef BMDEBUG
-    #undef DEBUG
-#endif

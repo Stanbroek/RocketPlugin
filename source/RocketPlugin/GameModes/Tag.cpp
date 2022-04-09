@@ -2,7 +2,7 @@
 // Tag others by bumping other and try to survive until the very end.
 //
 // Author:        Stanbroek
-// Version:       0.1.4 12/09/21
+// Version:       0.1.5 07/04/22
 // BMSDK version: 95
 
 #include "Tag.h"
@@ -93,6 +93,16 @@ void Tag::Activate(const bool active)
 std::string Tag::GetGameModeName()
 {
     return "Tag";
+}
+
+
+/// <summary>Gets the game modes description.</summary>
+/// <returns>The game modes description</returns>
+std::string Tag::GetGameModeDescription()
+{
+    return "Tag assigns a random player to be tagged and that player\n"
+           "has to bump other players to tag them, if they do not tag\n"
+           "someone else fast enough they are removed from the game.";
 }
 
 

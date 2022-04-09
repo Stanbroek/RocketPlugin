@@ -6,10 +6,11 @@ namespace RLConstants
 	const RocketPlugin::GameSetting GAME_MODES {
 		"GameModes", "Game Modes", 0,
 		{ "Soccar",                    "Hoops",                         "Snow Day",                  "Rumble",                   "",     "Dropshot",                    "Heatseeker",                 "Gridiron" },
-		{ "TAGame.GameInfo_Soccar_TA", "TAGame.GameInfo_Basketball_TA", "TAGame.Gameinfo_Hockey_TA", "TAGame.GameInfo_Items_TA", "None", "TAGame.GameInfo_Breakout_TA", "TAGame.GameInfo_GodBall_TA", "TAGame.GameInfo_Football_TA" }
+		{ "TAGame.GameInfo_Soccar_TA", "TAGame.GameInfo_Basketball_TA", "TAGame.Gameinfo_Hockey_TA", "TAGame.GameInfo_Items_TA", "None", "TAGame.GameInfo_Breakout_TA", "TAGame.GameInfo_GodBall_TA", "TAGame.GameInfo_FootBall_TA" }
 	};
 
-	const std::map<std::string, std::string> MAPS {
+	const std::map<std::string, std::string> MAPS {	
+		{ "ARC_Darc_P",              "Starbase ARC (Aftermath)" },
 		{ "ARC_P",                   "ARCtagon" },
 		{ "CHN_Stadium_Day_P",       "Forbidden Temple (Day)" },
 		{ "CHN_Stadium_P",           "Forbidden Temple" },
@@ -31,13 +32,18 @@ namespace RLConstants
 		{ "Labs_Holyfield_P",        "Loophole" },
 		{ "Labs_Octagon_02_P",       "Octagon (New)" },
 		{ "Labs_Octagon_P",          "Octagon (Old)" },
+		{ "Labs_PillarGlass_P",      "Hourglass" },
+		{ "Labs_PillarHeat_P",       "Barricade" },
+		{ "Labs_PillarWings_P",      "Colossus" },
 		{ "Labs_Underpass_P",        "Underpass" },
 		{ "Labs_Utopia_P",           "Utopia Retro" },
 		{ "NeoTokyo_P",              "Tokyo Underpass" },
 		{ "NeoTokyo_Standard_P",     "Neo Tokyo" },
+		{ "NeoTokyo_Toon_p",         "Neo Tokyo (Comic)", },
 		{ "Park_Night_P",            "Beckwith Park (Midnight)" },
 		{ "Park_P",                  "Beckwith Park" },
 		{ "Park_Rainy_P",            "Beckwith Park (Stormy)" },
+		{ "Park_Snowy_P",            "Beckwith Park (Snowy)" },
 		{ "ShatterShot_P",           "Core 707" },
 		{ "Stadium_Foggy_P",         "DFH Stadium (Stormy)" },
 		{ "Stadium_P",               "DFH Stadium" },
@@ -62,12 +68,13 @@ namespace RLConstants
 		{ "eurostadium_snownight_p", "Mannfield (Snowy)" },
 		{ "farm_p",                  "Farmstead" },
 		{ "music_p",                 "Neon Fields" },
-		{ "outlaw_p",				 "Deadeye Canyon" },
+		{ "outlaw_p",                "Deadeye Canyon" },
+		{ "park_bman_p",             "Beckwith Park" },
 		{ "stadium_day_p",           "DFH Stadium (Day)" },
 		{ "throwbackhockey_p",       "Throwback Stadium (Snowy)" },
 		{ "throwbackstadium_P",      "Throwback Stadium" },
 		{ "wasteland_Night_S_P",     "Wasteland (Night)" },
-		{ "wasteland_s_p",           "Wasteland" }
+		{ "wasteland_s_p",           "Wasteland" },
 	};
 
 	const RocketPlugin::GameSetting BOT_DIFFICULTIES {

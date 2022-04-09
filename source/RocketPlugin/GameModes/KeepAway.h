@@ -11,12 +11,13 @@ public:
     bool IsActive() override;
     void Activate(bool active) override;
     std::string GetGameModeName() override;
+    std::string GetGameModeDescription() override;
 
 private:
     void onTick(ServerWrapper server, void* params);
-    void onGiveScorePre(ActorWrapper caller);
-    void onGiveScorePost(ActorWrapper caller) const;
-    void onCarTouch(void* params);
+    void onGiveScorePre(PriWrapper player);
+    void onGiveScorePost(PriWrapper player) const;
+    void onCarTouch(void*);
     void onBallTouch(CarWrapper car);
     void resetPoints();
 

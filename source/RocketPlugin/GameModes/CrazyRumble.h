@@ -6,7 +6,7 @@
 #include "RumbleItems/RumbleConstants.inc"
 
 
-class CrazyRumble final : public RocketGameMode
+class CrazyRumble final : public RocketGameMode, public NetworkedModule
 {
 public:
     CrazyRumble()
@@ -45,17 +45,20 @@ public:
     bool IsActive() override;
     void Activate(bool active) override;
     std::string GetGameModeName() override;
+    std::string GetGameModeDescription() override;
+
+    void Receive(PriWrapper sender, const std::string& message) override;
 
     void ResetItemsValues();
     void UpdateItemsValues(float newForceMultiplier, float newRangeMultiplier, float newDurationMultiplier);
 
 private:
-    void onGiveItem(const ActorWrapper& caller) const;
+    void onGiveItem(const ObjectWrapper&) const;
     void updateRumbleOptions() const;
     void updateRumbleOptions(CarWrapper car) const;
-    void updateDispensers(bool updateMaxTimeTillItem = true, bool updateItemPool = true) const;
-    void updateDispenserItemPool(const ActorWrapper& dispenser) const;
-    void updateDispenserMaxTimeTillItem(const ActorWrapper& dispenser) const;
+    void updateDispensers(bool = true, bool = true) const;
+    void updateDispenserItemPool(const ObjectWrapper&) const;
+    void updateDispenserMaxTimeTillItem(const ObjectWrapper&) const;
 
     float forceMultiplier = 1.0f;
     float rangeMultiplier = 1.0f;

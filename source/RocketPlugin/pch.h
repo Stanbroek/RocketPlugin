@@ -34,6 +34,28 @@
 #include <regex>
 #include <map>
 
+// SIMDJson
+#pragma warning(push, 0)
+#include "simdjson.h"
+#pragma warning(pop)
+
+// FMT
+#define FMT_HEADER_ONLY
+#include "fmt/format.h"
+#include "fmt/ostream.h"
+#include "fmt/chrono.h"
+#include "fmt/ranges.h"
+#include "fmt/xchar.h"
+#include "fmt/os.h"
+
+// Dear ImGui
+#define IM_ASSERT(...)  __noop
+#include "ImGui/imgui.h"
+#include "ImGui/additions/imgui_searchablecombo.h"
+#include "ImGui/additions/imgui_rangeslider.h"
+#include "ImGui/additions/imgui_additions.h"
+#include "ImGui/additions/imgui_stdlib.h"
+
 // BakkesMod SDK
 #pragma comment(lib, "pluginsdk.lib")
 #pragma warning(push, 0)
@@ -62,27 +84,5 @@ enum
 #include "utils/threading.h"
 #include "utils/filesystem.h"
 #include "utils/exception_safety.h"
-
-// Dear ImGui
-#define IM_ASSERT(_EXPR)    __noop
-#include "ImGui/imgui.h"
-#include "ImGui/imgui_searchablecombo.h"
-#include "ImGui/imgui_rangeslider.h"
-#include "ImGui/imgui_additions.h"
-//#include "ImGui/imgui_stdlib.h"
-
-// SIMDJson
-#pragma warning(push, 0)
-#include "simdjson.h"
-#pragma warning(pop)
-
-// FMT
-#define FMT_HEADER_ONLY
-#include "fmt/format.h"
-#include "fmt/ostream.h"
-#include "fmt/chrono.h"
-#include "fmt/ranges.h"
-#include "fmt/xchar.h"
-#include "fmt/os.h"
 
 #endif //PCH_H

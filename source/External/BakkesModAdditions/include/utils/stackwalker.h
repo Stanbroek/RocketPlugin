@@ -58,11 +58,10 @@
 #include <Psapi.h>
 #pragma comment(lib, "Psapi.lib")
 
+#include "cvarmanagerwrapperdebug.h"
+
 #include "utils/stringify.h"
 
-#ifndef FMT_HEADER_ONLY
-    #define FMT_HEADER_ONLY
-#endif
 #include "fmt/format.h"
 #include "fmt/xchar.h"
 #include "fmt/chrono.h"
@@ -276,7 +275,7 @@ public:
     }
 
     BOOL ShowCallStack(HANDLE hThread = GetCurrentThread(),
-        const CONTEXT* context = NULL) noexcept
+        const CONTEXT* context = NULL)
     {
         CONTEXT            c;
         CallStackEntry     csEntry;
@@ -742,7 +741,7 @@ private:
                     if (vData != NULL) {
                         if (GetFileVersionInfo(szImg, dwHandle, dwSize, vData) != 0) {
                             UINT  len;
-                            TCHAR szSubBlock[] = _T("\\");
+                            TCHAR szSubBlock[] = TEXT("\\");
                             if (VerQueryValue(vData, szSubBlock, (LPVOID*)&fInfo, &len) == 0)
                                 fInfo = NULL;
                             else {

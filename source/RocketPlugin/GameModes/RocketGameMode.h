@@ -183,8 +183,14 @@ public:
     {
         return "Rocket Plugin Game Mode";
     }
+    virtual std::string GetGameModeDescription()
+    {
+        return {};
+    }
 
 protected:
     bool isActive = false;
     std::unique_ptr<std::type_index> typeIdx;
+
+private:
 };

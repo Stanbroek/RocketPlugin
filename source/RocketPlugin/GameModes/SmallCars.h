@@ -12,6 +12,7 @@ public:
     bool IsActive() override;
     void Activate(bool active) override;
     std::string GetGameModeName() override;
+    std::string GetGameModeDescription() override;
 
 private:
     float oldScale = 1.f;

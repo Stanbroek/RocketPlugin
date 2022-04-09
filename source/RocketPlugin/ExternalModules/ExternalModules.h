@@ -6,8 +6,8 @@ namespace ExternalModules
     inline std::vector<std::tuple<std::function<void()>>> ExternalModules;
     inline std::vector<std::tuple<std::string, std::string>> ExternalCVars;
     inline std::vector<std::tuple<std::string, std::function<void(const std::vector<std::string>&)>, std::string, unsigned char>> ExternalNotifiers;
-    inline std::vector<std::tuple<std::string, std::function<void(ActorWrapper, const void*, const std::string&)>>> ExternalEventHooksPre;
-    inline std::vector<std::tuple<std::string, std::function<void(ActorWrapper, const void*, const std::string&)>>> ExternalEventHooksPost;
+    inline std::vector<std::tuple<std::string, std::function<void(ActorWrapper, void*, const std::string&)>>> ExternalEventHooksPre;
+    inline std::vector<std::tuple<std::string, std::function<void(ActorWrapper, void*, const std::string&)>>> ExternalEventHooksPost;
 
     template<typename Ret, class... Args>
     static void RegisterModule(Ret(*func)(Args...), const Args&&... args)
@@ -24,7 +24,7 @@ namespace ExternalModules
 
     static void RegisterHookEvent(const std::string& eventName, const std::function<void(const std::string&)>& callback)
     {
-        ExternalEventHooksPre.emplace_back(eventName, [=](const ActorWrapper&, const void*, const std::string& eventName_) -> void {
+        ExternalEventHooksPre.emplace_back(eventName, [=](const ActorWrapper&, void*, const std::string& eventName_) -> void {
             callback(eventName_);
         });
     }
@@ -32,14 +32,14 @@ namespace ExternalModules
     template<typename T, std::enable_if_t<std::is_base_of_v<ObjectWrapper, T>>* = nullptr>
     static void RegisterHookEventWithCaller(const std::string& eventName, const std::function<void(const T&, void*, const std::string&)>& callback)
     {
-        ExternalEventHooksPre.emplace_back(eventName, [=](const ActorWrapper &caller, const void* params, const std::string& eventName_) -> void {
+        ExternalEventHooksPre.emplace_back(eventName, [=](const ActorWrapper& caller, void* params, const std::string& eventName_) -> void {
             callback(T(caller.memory_address), params, eventName_);
         });
     }
 
     static void RegisterHookEventPost(const std::string& eventName, const std::function<void(const std::string&)>& callback)
     {
-        ExternalEventHooksPost.emplace_back(eventName, [=](const ActorWrapper &, const void* params, const std::string& eventName_) -> void {
+        ExternalEventHooksPost.emplace_back(eventName, [=](const ActorWrapper&, void*, const std::string& eventName_) -> void {
             callback(eventName_);
         });
     }
@@ -47,7 +47,7 @@ namespace ExternalModules
     template<typename T, std::enable_if_t<std::is_base_of_v<ObjectWrapper, T>>* = nullptr>
     static void RegisterHookEventWithCallerPost(const std::string& eventName, const std::function<void(const T&, const void*, const std::string&)>& callback)
     {
-        ExternalEventHooksPost.emplace_back(eventName, [=](const ActorWrapper &caller, const void* params, const std::string& eventName_) -> void {
+        ExternalEventHooksPost.emplace_back(eventName, [=](const ActorWrapper& caller, void* params, const std::string& eventName_) -> void {
             callback(T(caller.memory_address), params, eventName_);
         });
     }

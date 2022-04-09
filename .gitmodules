@@ -10,3 +10,6 @@
 [submodule "source/External/simdjson"]
 	path = source/External/simdjson
 	url = https://github.com/simdjson/simdjson.git
+[submodule "source/External/cpp-httplib"]
+	path = source/External/cpp-httplib
+	url = https://github.com/yhirose/cpp-httplib.git

@@ -2,6 +2,7 @@
 
 #include "GameModes/Tag.h"
 #include "GameModes/KeepAway.h"
+#include "GameModes/GhostCars.h"
 #include "GameModes/BoostShare.h"
 #include "GameModes/BoostSteal.h"
 #include "GameModes/CrazyRumble.h"
@@ -57,9 +58,9 @@ void RocketPlugin::broadcastJoining()
 }
 
 
-bool RocketPlugin::isHostingLocalGame() const
+bool RocketPlugin::IsHostingLocalGame() const
 {
-    BM_WARNING_LOG("redacted function");
+    //BM_WARNING_LOG("redacted function");
 
     return false;
 }
@@ -110,7 +111,7 @@ void BoostSteal::stealBoost(CarWrapper, void*) const
 }
 
 
-void CrazyRumble::onGiveItem(const ActorWrapper&) const
+void CrazyRumble::onGiveItem(const ObjectWrapper&) const
 {
     BM_WARNING_LOG("redacted function");
 }
@@ -122,13 +123,13 @@ void CrazyRumble::updateDispensers(const bool, const bool) const
 }
 
 
-void CrazyRumble::updateDispenserItemPool(const ActorWrapper&) const
+void CrazyRumble::updateDispenserItemPool(const ObjectWrapper&) const
 {
     BM_WARNING_LOG("redacted function");
 }
 
 
-void CrazyRumble::updateDispenserMaxTimeTillItem(const ActorWrapper&) const
+void CrazyRumble::updateDispenserMaxTimeTillItem(const ObjectWrapper&) const
 {
     BM_WARNING_LOG("redacted function");
 }
@@ -147,6 +148,30 @@ void Tag::onCarImpact(CarWrapper, void*)
 
 
 void Tag::onRumbleItemActivated(ActorWrapper, void*)
+{
+    BM_WARNING_LOG("redacted function");
+}
+
+
+void GhostCars::setRBCollidesWithChannel(const ObjectWrapper&) const
+{
+    BM_WARNING_LOG("redacted function");
+}
+
+
+void GhostCars::updateRBCollidesWithChannels() const
+{
+    BM_WARNING_LOG("redacted function");
+}
+
+
+void GhostCars::resetRBCollidesWithChannels() const
+{
+    BM_WARNING_LOG("redacted function");
+}
+
+
+void GhostCars::clientUpdateRBCollidesWithChannels() const
 {
     BM_WARNING_LOG("redacted function");
 }

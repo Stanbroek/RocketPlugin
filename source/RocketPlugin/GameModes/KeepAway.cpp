@@ -2,7 +2,7 @@
 // Touch the ball to get points.
 //
 // Author:        Stanbroek
-// Version:       0.2.3 28/08/21
+// Version:       0.2.4 07/04/22
 // BMSDK version: 95
 
 // BUG's:
@@ -52,14 +52,14 @@ void KeepAway::Activate(const bool active)
             [this](const ServerWrapper& caller, void* params, const std::string&) {
                 onTick(caller, params);
             });
-        HookEventWithCaller<ActorWrapper>(
+        HookEventWithCaller<PriWrapper>(
             "Function TAGame.PRI_TA.GiveScore",
-            [this](const ActorWrapper& caller, void*, const std::string&) {
+            [this](const PriWrapper& caller, void*, const std::string&) {
                 onGiveScorePre(caller);
             });
-        HookEventWithCallerPost<ActorWrapper>(
+        HookEventWithCallerPost<PriWrapper>(
             "Function TAGame.PRI_TA.GiveScore",
-            [this](const ActorWrapper& caller, void*, const std::string&) {
+            [this](const PriWrapper& caller, void*, const std::string&) {
                 onGiveScorePost(caller);
             });
         HookEventWithCaller<BallWrapper>(
@@ -72,9 +72,9 @@ void KeepAway::Activate(const bool active)
             [this](const CarWrapper& car, void*, const std::string&) {
                 onBallTouch(car);
             });
-        HookEventWithCaller<ActorWrapper>(
+        HookEventWithCaller<ServerWrapper>(
             "Function TAGame.GameEvent_Soccar_TA.EventGoalScored",
-            [this](const ActorWrapper&, void*, const std::string&) {
+            [this](const ServerWrapper&, void*, const std::string&) {
                 lastTouched = emptyPlayer;
             });
     }
@@ -96,6 +96,15 @@ void KeepAway::Activate(const bool active)
 std::string KeepAway::GetGameModeName()
 {
     return "Keep Away";
+}
+
+
+/// <summary>Gets the game modes description.</summary>
+/// <returns>The game modes description</returns>
+std::string KeepAway::GetGameModeDescription()
+{
+    return "Keep Away awards points to the player who touched\n"
+           "the ball until someone else touches the ball.";
 }
 
 
@@ -137,31 +146,28 @@ void KeepAway::onTick(ServerWrapper server, void* params)
 
 /// <summary>Disables getting score from normal events.</summary>
 /// <remarks>Gets called on 'Function TAGame.PRI_TA.GiveScore'.</remarks>
-/// <param name="caller">instance of the PRI as <see cref="ActorWrapper"/></param>
-void KeepAway::onGiveScorePre(ActorWrapper caller)
+/// <param name="player">player who got points</param>
+void KeepAway::onGiveScorePre(PriWrapper player)
 {
     if (enableNormalScore) {
         return;
     }
-    PriWrapper player = PriWrapper(caller.memory_address);
-    BMCHECK(player);
 
+    BMCHECK(player);
     lastNormalScore = player.GetMatchScore();
 }
 
 
 /// <summary>Disables getting score from normal events.</summary>
 /// <remarks>Gets called on 'Function TAGame.PRI_TA.GiveScore'.</remarks>
-/// <param name="caller">instance of the PRI as <see cref="ActorWrapper"/></param>
-void KeepAway::onGiveScorePost(ActorWrapper caller) const
+/// <param name="player">player who got points</param>
+void KeepAway::onGiveScorePost(PriWrapper player) const
 {
     if (enableNormalScore) {
         return;
     }
-
-    PriWrapper player = PriWrapper(caller.memory_address);
+    
     BMCHECK(player);
-
     player.SetMatchScore(lastNormalScore);
     player.ForceNetUpdate2();
 }

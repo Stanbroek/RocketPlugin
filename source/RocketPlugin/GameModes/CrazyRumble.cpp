@@ -2,7 +2,7 @@
 // A crazy rumble customizer game mode for Rocket Plugin.
 //
 // Author:        Stanbroek
-// Version:       0.3.3 07/09/21
+// Version:       0.3.4 07/04/22
 // BMSDK version: 95
 
 #include "CrazyRumble.h"
@@ -22,6 +22,11 @@ void CrazyRumble::RenderOptions()
                 RPConfig::ParseRumbleItems(data, this);
             }
         }
+    }
+
+    ServerWrapper gameEvent = Outer()->GetGame();
+    if (!gameEvent.IsNull()) {
+        ImGui::Banner("Warning, Crazy Rumble Items only works in rumble matches", ImColor(251, 140, 0, 225), ImVec2(0, 0), false);  // IM_COL32_WARNING_BANNER
     }
 
     bool shouldUpdateCars = false;
@@ -157,14 +162,14 @@ bool CrazyRumble::IsActive()
 void CrazyRumble::Activate(const bool active)
 {
     if (active && !isActive) {
-        HookEventWithCallerPost<ActorWrapper>(
+        HookEventWithCallerPost<ObjectWrapper>(
             "Function TAGame.ItemPool_TA.GiveItem",
-            [this](const ActorWrapper& caller, void*, const std::string&) {
+            [this](const ObjectWrapper& caller, void*, const std::string&) {
                 onGiveItem(caller);
             });
-        HookEventWithCallerPost<ActorWrapper>(
+        HookEventWithCallerPost<ObjectWrapper>(
             "Function TAGame.PlayerItemDispenser_TA.Init",
-            [this](const ActorWrapper& caller, void*, const std::string&) {
+            [this](const ObjectWrapper& caller, void*, const std::string&) {
                 updateDispenserItemPool(caller);
                 updateDispenserMaxTimeTillItem(caller);
             });
@@ -184,7 +189,24 @@ void CrazyRumble::Activate(const bool active)
 /// <returns>The game modes name</returns>
 std::string CrazyRumble::GetGameModeName()
 {
-    return "Crazy Rumble Items";
+    return "Crazy Rumble";
+}
+
+
+/// <summary>Gets the game modes description.</summary>
+/// <returns>The game modes description</returns>
+std::string CrazyRumble::GetGameModeDescription()
+{
+    return "Crazy Rumble lets you customize the properties of every rumble item.";
+}
+
+
+/// <summary>Gets called when it receives a networked message from the host.</summary>
+/// <param name="sender">Original sender of the message</param>
+/// <param name="message">Message contents</param>
+void CrazyRumble::Receive(PriWrapper sender, const std::string& message)
+{
+    __noop;
 }
 
 

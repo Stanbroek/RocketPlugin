@@ -2,7 +2,7 @@
 // Should scale cars properly.
 //
 // Author:        Stanbroek
-// Version:       0.0.2 28/08/21
+// Version:       0.0.3 07/04/22
 // BMSDK version: 95
 
 #include "SmallCars.h"
@@ -160,7 +160,6 @@ void SmallCars::RenderOptions()
         EDIT_FLOAT_COMPONENT(FlipCarComponentWrapper, FlipCarTime);
         ImGui::Unindent();
     }
-
     /* Vehicle options */
     if (ImGui::CollapsingHeader("Vehicle Sim")) {
         ImGui::Indent();
@@ -191,7 +190,6 @@ void SmallCars::RenderOptions()
         EDIT_FLOAT_COMPONENT(BoostWrapper, RechargeRate);
         EDIT_FLOAT_COMPONENT(BoostWrapper, RechargeDelay);
         ImGui::Unindent();
-
     }
     if (ImGui::CollapsingHeader("Dodge Component")) {
         ImGui::Indent();
@@ -255,9 +253,9 @@ bool SmallCars::IsActive()
 void SmallCars::Activate(const bool active)
 {
     if (active && !isActive) {
-        HookEventWithCaller<ServerWrapper>(
+        HookEventWithCaller<CarWrapper>(
             "Function TAGame.Car_TA.PostBeginPlay",
-            [this](const ServerWrapper&, void*, const std::string&) {
+            [this](const CarWrapper&, void*, const std::string&) {
                 oldScale = 1;
             });
     }
@@ -275,4 +273,14 @@ void SmallCars::Activate(const bool active)
 std::string SmallCars::GetGameModeName()
 {
     return "Small Cars (BETA)";
+}
+
+
+/// <summary>Gets the game modes description.</summary>
+/// <returns>The game modes description</returns>
+std::string SmallCars::GetGameModeDescription()
+{
+    return "The player allows you to select multiple modifiers of the\n"
+           "car that will change while scaling its size to make the\n"
+           "car behave more realistic.";
 }

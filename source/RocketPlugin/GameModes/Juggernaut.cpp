@@ -2,7 +2,7 @@
 // Scoring makes you the juggernaut, but there can only be one.
 //
 // Author:        Stanbroek
-// Version:       0.2.2 28/08/21
+// Version:       0.2.3 07/04/22
 // BMSDK version: 95
 
 #include "Juggernaut.h"
@@ -43,19 +43,19 @@ void Juggernaut::Activate(const bool active)
             [this](const ActorWrapper&, void*, const std::string&) {
                 initGame();
             });
-        HookEventWithCaller<ActorWrapper>(
+        HookEventWithCaller<PriWrapper>(
             "Function TAGame.PRI_TA.EventScoredGoal",
-            [this](const ActorWrapper& caller, void*, const std::string&) {
+            [this](const PriWrapper& caller, void*, const std::string&) {
                 onGoalScored(caller);
             });
-        HookEventWithCaller<ActorWrapper>(
+        HookEventWithCaller<PriWrapper>(
             "Function TAGame.PRI_TA.GiveScore",
-            [this](const ActorWrapper& caller, void*, const std::string&) {
+            [this](const PriWrapper& caller, void*, const std::string&) {
                 onGiveScorePre(caller);
             });
-        HookEventWithCallerPost<ActorWrapper>(
+        HookEventWithCallerPost<PriWrapper>(
             "Function TAGame.PRI_TA.GiveScore",
-            [this](const ActorWrapper& caller, void*, const std::string&) {
+            [this](const PriWrapper& caller, void*, const std::string&) {
                 onGiveScorePost(caller);
             });
         initGame();
@@ -79,14 +79,22 @@ std::string Juggernaut::GetGameModeName()
 }
 
 
+/// <summary>Gets the game modes description.</summary>
+/// <returns>The game modes description</returns>
+std::string Juggernaut::GetGameModeDescription()
+{
+    return "Juggernaut makes the player who scores the juggernaut,\n"
+           "the juggernaut then has to defend his goal alone and\n"
+           "try to score in the other goal.";
+}
+
+
 /// <summary>Updates the game every game tick.</summary>
 /// <remarks>Gets called on 'TAGame.PRI_TA.EventScoredGoal'.</remarks>
-/// <param name="caller">instance of the PRI as <see cref="ActorWrapper"/></param>
-void Juggernaut::onGoalScored(ActorWrapper caller)
+/// <param name="scorer">player who scored points</param>
+void Juggernaut::onGoalScored(PriWrapper scorer)
 {
-    PriWrapper scorer = PriWrapper(caller.memory_address);
     BMCHECK(scorer);
-
     const std::vector<PriWrapper> players = Outer()->playerMods.GetPlayers();
     for (PriWrapper player : players) {
         player.ServerChangeTeam(NOT_JUGGERNAUT_TEAM);
@@ -107,24 +115,20 @@ void Juggernaut::onGoalScored(ActorWrapper caller)
 
 /// <summary>Disables getting score from scoring goals.</summary>
 /// <remarks>Gets called on 'Function TAGame.PRI_TA.GiveScore'.</remarks>
-/// <param name="caller">instance of the PRI as <see cref="ActorWrapper"/></param>
-void Juggernaut::onGiveScorePre(ActorWrapper caller)
+/// <param name="player">player who got points</param>
+void Juggernaut::onGiveScorePre(PriWrapper player)
 {
-    PriWrapper player = PriWrapper(caller.memory_address);
     BMCHECK(player);
-
     lastNormalGoals = player.GetMatchGoals();
 }
 
 
 /// <summary>Disables getting score from scoring goals.</summary>
 /// <remarks>Gets called on 'Function TAGame.PRI_TA.GiveScore'.</remarks>
-/// <param name="caller">instance of the PRI as <see cref="ActorWrapper"/></param>
-void Juggernaut::onGiveScorePost(ActorWrapper caller) const
+/// <param name="player">player who got points</param>
+void Juggernaut::onGiveScorePost(PriWrapper player) const
 {
-    PriWrapper player = PriWrapper(caller.memory_address);
     BMCHECK(player);
-
     player.SetMatchGoals(lastNormalGoals);
 }
 

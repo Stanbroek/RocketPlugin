@@ -2,7 +2,7 @@
 // A boost sharing game mode for Rocket Plugin.
 //
 // Author:        Stanbroek
-// Version:       0.0.4 28/08/21
+// Version:       0.0.5 07/04/22
 // BMSDK version: 95
 
 #include "BoostShare.h"
@@ -66,6 +66,15 @@ void BoostShare::Activate(const bool active)
 std::string BoostShare::GetGameModeName()
 {
     return "Boost Share";
+}
+
+
+/// <summary>Gets the game modes description.</summary>
+/// <returns>The game modes description</returns>
+std::string BoostShare::GetGameModeDescription()
+{
+    return "Boost Share makes it everyone has a shared boost pool,\n"
+           "meaning when someone boosts you get some of that boost.";
 }
 
 

@@ -2,7 +2,7 @@
 // UDP hole punching using STUN for Rocket Plugin.
 //
 // Author:       Stanbroek
-// Version:      0.6.8 18/09/21
+// Version:      0.6.9 10/10/21
 //
 // References:
 //  https://en.wikipedia.org/wiki/UDP_hole_punching
@@ -16,7 +16,7 @@
 #include <WinSock2.h>
 #include <WS2tcpip.h>
 
-#include "utils/win32_error_category.h"
+#include "utils/winsock_error_category.h"
 
 constexpr timeval NETWORK_TIMEOUT = { 3, 0 };
 #define STUN_SERVICES_FILE_PATH     (RocketPluginDataFolder / "STUN-services.txt")
@@ -311,7 +311,7 @@ StunResponse ParseStunResponse(char* buf, int bufLen)
 /// <param name="changePort">Whether the STUN server can change its return port</param>
 /// <param name="resp"><see cref="stunResponse"/> to store the response in</param>
 /// <returns>Whether the request errored</returns>
-int SendStunRequest(const SOCKET sock, sockaddr addrDest, const u_short attrType, const bool changeIP,
+int SendStunRequest(const SOCKET sock, const sockaddr addrDest, const u_short attrType, const bool changeIP,
     const bool changePort, StunResponse* resp)
 {
     // Send a datagram to the receiver up to three times.
@@ -563,7 +563,7 @@ void P2PHost::PunchPort(const std::string& ip, unsigned short port, const bool t
     }
 
     // Send a datagram to the receiver
-    char sendBuf = '\0';
+    constexpr char sendBuf = '\0';
     constexpr size_t sendBufLen = sizeof sendBuf;
     sendto(
         sendSocket, &sendBuf, static_cast<int>(sendBufLen), 0, reinterpret_cast<sockaddr*>(&addrDest), sizeof addrDest);

@@ -2,7 +2,7 @@
 // Car physics mods for Rocket Plugin.
 //
 // Author:        Stanbroek
-// Version:       0.6.8 18/09/21
+// Version:       0.6.9 12/10/21
 // BMSDK version: 95
 #include "CarPhysicsMods.h"
 #include "RocketPlugin.h"
@@ -26,7 +26,7 @@ CarPhysicsMods::CarPhysics::CarPhysics(const RocketPlugin* rp, const PriWrapper 
 void CarPhysicsMods::SetPhysics(CarWrapper car)
 {
     ServerWrapper game = Outer()->GetGame();
-    BMCHECK(game);
+    BMCHECK_SILENT(game);
 
     BMCHECK(car);
 

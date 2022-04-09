@@ -2,7 +2,7 @@
 // A zombie survival game mode for Rocket Plugin.
 //
 // Author:        Stanbroek
-// Version:       0.2.4 28/08/21
+// Version:       0.2.5 07/04/22
 // BMSDK version: 95
 
 #include "Zombies.h"
@@ -69,6 +69,14 @@ void Zombies::Activate(const bool active)
 std::string Zombies::GetGameModeName()
 {
     return "Zombies";
+}
+
+
+/// <summary>Gets the game modes description.</summary>
+/// <returns>The game modes description</returns>
+std::string Zombies::GetGameModeDescription()
+{
+    return "Zombies spawns in a bunch of bots that will try to demo your car.";
 }
 
 

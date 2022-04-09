@@ -1,6 +1,8 @@
 #pragma once
 #include "stackwalker.h"
-#include "se_exception.h"
+#include "win32_error_category.h"
+
+#include "cvarmanagerwrapperdebug.h"
 
 
 #define COMMA_ ,
@@ -9,45 +11,9 @@
 #define RPARENT_ )
 #define LPARENT_ (
 
-#define SET_SE_TRANSLATOR					\
-	//static std::once_flag _se_translator_f;	\
-	//std::call_once(_se_translator_f, []() {	\
-	//	SE_Exception::SetSETranslator();	\
-	//})
-
-#define LOG_EXCEPTIONS(desc, msg, trace)	\
-	BM_LOG("=== Critical error: ===\n{:s}\n{:s}\n\n{:s}", desc, msg, trace)
-
-#define CATCH_EXCEPTIONS(desc)																					\
-	catch (const std::exception& e) {																			\
-		try {																									\
-			LOG_EXCEPTIONS(desc, e.what(), StackWalkerBM().DumpCallStack());									\
-		}																										\
-		catch (...) { BM_CRITICAL_LOG("Failed to get callstack {:s}", e.what()); }								\
-	}																											\
-	catch (const SE_Exception& e) {																				\
-		try {																									\
-			LOG_EXCEPTIONS(desc, e.getSeMessage(), StackWalkerBM().DumpCallStack(e.GetExceptionPointers()));	\
-		}																										\
-		catch (...) { BM_CRITICAL_LOG("Failed to get callstack {:s}", e.getSeMessage()); }						\
-	}																											\
-	catch (...) {																								\
-		try {																									\
-			LOG_EXCEPTIONS(desc, "Unknown exception", StackWalkerBM().DumpCallStack());							\
-		}																										\
-		catch (...) { BM_CRITICAL_LOG("Failed to get callstack"); }												\
-	}
-
-#define TRY_CATCH_EXCEPTIONS(body, desc)	\
-	try {									\
-		body								\
-		return;								\
-	}										\
-	CATCH_EXCEPTIONS(desc)
-
 inline void Nothing(void*) {}
 
-static inline int LogCallStack(const std::string& desc, PEXCEPTION_POINTERS pExceptionPointers)
+static inline int LogCallStack(const std::string& desc, EXCEPTION_POINTERS* pExceptionPointers)
 {
 	if (pExceptionPointers == nullptr || pExceptionPointers->ExceptionRecord == nullptr) {
 		BM_CRITICAL_LOG("could not get the exception record");
@@ -55,10 +21,11 @@ static inline int LogCallStack(const std::string& desc, PEXCEPTION_POINTERS pExc
 	}
 
 	const DWORD exceptionCode = pExceptionPointers->ExceptionRecord->ExceptionCode;
-	std::string exceptionMessage = GetExceptionMessage(exceptionCode);
+	const std::error_code exception = make_win32_error_code(exceptionCode);
 	const std::string exceptionCallStack = to_string(StackWalkerBM().DumpCallStack(pExceptionPointers));
 
-	if (exceptionMessage.empty()) {
+	std::string exceptionMessage = exception.message();
+	if (exceptionMessage.starts_with("N/A")) {
 		try {
 			// MSVC exception ptr hack.
 			// https://github.com/microsoft/STL/blob/68b344c9dcda6ddf1a8fca112cb9033f9e50e787/stl/src/excptptr.cpp#L476
@@ -75,11 +42,11 @@ static inline int LogCallStack(const std::string& desc, PEXCEPTION_POINTERS pExc
 			exceptionMessage = buf ? std::string(buf, strnlen_s(buf, 1024)) : "empty exception";
 		}
 		catch (...) {
-			exceptionMessage = SE_Exception::FormatSeMessage(exceptionCode);
+			exceptionMessage = exception.message();
 		}
 	}
 
-	LOG_EXCEPTIONS(desc, exceptionMessage, exceptionCallStack);
+	BM_LOG("=== Critical error: ===\n{:s}\n{:s}\n\n{:s}", desc, exceptionMessage, exceptionCallStack);
 
 	if (exceptionCode == DBG_CONTROL_C ||
 		exceptionCode == EXCEPTION_STACK_OVERFLOW ||
@@ -115,7 +82,6 @@ static inline bool GuardedFunction(const std::string& desc, Func lambda)
 	func														\
 	{															\
 		before													\
-		/*TRY_CATCH_EXCEPTIONS(body(args), #func ", " desc)*/		\
 		TRY_EXCEPT(#func ", " desc, body, args)					\
 		after													\
 	}
@@ -126,7 +92,7 @@ static inline bool GuardedFunction(const std::string& desc, Func lambda)
 
 #define CATCH_ONLOAD															\
 	CATCH_OVERRIDE_FUNCTION(void onLoad(), void OnLoad(), OnLoad,				\
-		, "Game thread exception:", SET_SE_TRANSLATOR;,							\
+		, "Game thread exception:", ,											\
 		cvarManager->executeCommand("sleep 100; plugin unload RocketPlugin");)
 
 #define CATCH_ONUNLOAD														\
@@ -135,35 +101,35 @@ static inline bool GuardedFunction(const std::string& desc, Func lambda)
 
 #define CATCH_RENDER														\
 	CATCH_OVERRIDE_FUNCTION(void Render(), void OnRender(), OnRender,		\
-		, "Rendering thread exception:", SET_SE_TRANSLATOR;,				\
+		, "Rendering thread exception:", ,									\
 		cvarManager->executeCommand("closemenu " + GetMenuName());			\
 		ImGui::GetStateStorage()->Clear();									\
 		ImGui::NewFrame();)
 
 #define CATCH_RENDER_SETTINGS																	\
 	CATCH_OVERRIDE_FUNCTION(void RenderSettings(), void OnRenderSettings(), OnRenderSettings,	\
-		, "Rendering thread exception:", SET_SE_TRANSLATOR;,									\
+		, "Rendering thread exception:", ,														\
 		cvarManager->executeCommand("closemenu settings");)
 
 #define CATCH_HOOK_EVENT																											\
-	CATCH_FUNCTION(void HookEvent(const std::string& eventName, std::function<void(const std::string& eventName)> callback) const,	\
+	CATCH_FUNCTION(void HookEvent(const std::string& eventName, std::function<void(const std::string& cbEventName)> callback) const,	\
 		callback, _eventName, + quote(eventName) + ", Game thread exception:",														\
 		gameWrapper->HookEvent LPARENT_ eventName COMMA_ [=](const std::string& _eventName) LBRACKET_, RBRACKET_ RPARENT_;)
 
 #define CATCH_HOOK_EVENT_POST																											\
-	CATCH_FUNCTION(void HookEventPost(const std::string& eventName, std::function<void(const std::string& eventName)> callback) const,	\
+	CATCH_FUNCTION(void HookEventPost(const std::string& eventName, std::function<void(const std::string& cbEventName)> callback) const,	\
 		callback, _eventName, + quote(eventName) + ", Game thread exception:",															\
 		gameWrapper->HookEvent LPARENT_ eventName COMMA_ [=](const std::string& _eventName) LBRACKET_, RBRACKET_ RPARENT_;)
 
-#define CATCH_HOOK_EVENT_WITH_CALLER																																																										\
-	CATCH_FUNCTION(template<typename T  COMMA_ typename std::enable_if<std::is_base_of<ObjectWrapper  COMMA_ T>::value>::type* = nullptr> void HookEventWithCaller(const std::string& eventName, const std::function<void(T, void*, const std::string&)>& callback) const,	\
-		callback, caller COMMA_ params COMMA_ _eventName, + quote(eventName) + ", Game thread exception:",																																									\
-		gameWrapper->HookEventWithCaller<T> LPARENT_ eventName COMMA_ [=](T caller, void* params, const std::string& _eventName) LBRACKET_, RBRACKET_ RPARENT_;)
+#define CATCH_HOOK_EVENT_WITH_CALLER																																																													\
+	CATCH_FUNCTION(template<typename T COMMA_ std::enable_if_t<std::is_base_of_v<ObjectWrapper COMMA_ T> COMMA_ bool> = true> void HookEventWithCaller(const std::string& eventName, const std::function<void(T cbCaller, void* cbParams, const std::string& cbEventName)>& callback) const,	\
+		callback, T(caller.memory_address) COMMA_ params COMMA_ _eventName, + quote(eventName) + ", Game thread exception:",																																							\
+		gameWrapper->HookEventWithCaller<ActorWrapper> LPARENT_ eventName COMMA_ [=](ActorWrapper caller, void* params, const std::string& _eventName) LBRACKET_, RBRACKET_ RPARENT_;)
 
-#define CATCH_HOOK_EVENT_WITH_CALLER_POST																																																										\
-	CATCH_FUNCTION(template<typename T  COMMA_ typename std::enable_if<std::is_base_of<ObjectWrapper  COMMA_ T>::value>::type* = nullptr> void HookEventWithCallerPost(const std::string& eventName, const std::function<void(T, void*, const std::string&)>& callback) const,	\
-		callback, caller COMMA_ params COMMA_ _eventName, + quote(eventName) + ", Game thread exception:",																																										\
-		gameWrapper->HookEventWithCallerPost<T> LPARENT_ eventName COMMA_ [=](T caller, void* params, const std::string& _eventName) LBRACKET_, RBRACKET_ RPARENT_;)
+#define CATCH_HOOK_EVENT_WITH_CALLER_POST																																																													\
+	CATCH_FUNCTION(template<typename T COMMA_ std::enable_if_t<std::is_base_of_v<ObjectWrapper COMMA_ T> COMMA_ bool> = true> void HookEventWithCallerPost(const std::string& eventName, const std::function<void(T cbCaller, void* cbParams, const std::string& cbEventName)>& callback) const,	\
+		callback, T(caller.memory_address) COMMA_ params COMMA_ _eventName, + quote(eventName) + ", Game thread exception:",																																													\
+		gameWrapper->HookEventWithCallerPost<ActorWrapper> LPARENT_ eventName COMMA_ [=](ActorWrapper caller, void* params, const std::string& _eventName) LBRACKET_, RBRACKET_ RPARENT_;)
 
 #define CATCH_SET_TIMEOUT																						\
 	CATCH_FUNCTION(void SetTimeout(const std::function<void(GameWrapper*)>& theLambda, const float time) const,	\

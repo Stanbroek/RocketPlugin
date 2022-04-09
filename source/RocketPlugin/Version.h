@@ -3,9 +3,9 @@
 #define STRINGIZE(s)		STRINGIZE2(s)
 
 #define VERSION_MAJOR       0
-#define VERSION_MINOR       6
-#define VERSION_REVISION    8
-#define VERSION_BUILD       2
+#define VERSION_MINOR       7
+#define VERSION_REVISION    0
+#define VERSION_BUILD       0
 
 #define VER_FILE_DESCRIPTION_STR    "Rocket Plugin"
 #define VER_FILE_VERSION            VERSION_MAJOR, VERSION_MINOR, VERSION_REVISION, VERSION_BUILD
@@ -19,7 +19,7 @@
 #define VER_PRODUCT_VERSION_STR     VER_FILE_VERSION_STR
 #define VER_ORIGINAL_FILENAME_STR   "RocketPlugin.dll"
 #define VER_INTERNAL_NAME_STR       VER_ORIGINAL_FILENAME_STR
-#define VER_COPYRIGHT_STR           "Copyright (C) 2021"
+#define VER_COPYRIGHT_STR           "Copyright (C) 2022"
 
 #ifdef DEBUG
 #define VER_VER_DEBUG               VS_FF_DEBUG

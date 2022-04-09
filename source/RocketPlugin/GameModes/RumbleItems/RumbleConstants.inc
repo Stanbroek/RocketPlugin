@@ -3,6 +3,7 @@
 
 namespace RumbleConstants
 {
+	constexpr size_t Count = 14;
 	const BallCarSpringWrapper boot = {
 		{
 			{

@@ -2,7 +2,7 @@
 // A boost draining game mode for Rocket Plugin.
 //
 // Author:        Stanbroek
-// Version:       0.1.1 15/08/21
+// Version:       0.1.2 07/04/22
 // BMSDK version: 95
 
 #include "Drainage.h"
@@ -47,6 +47,14 @@ void Drainage::Activate(const bool active)
 std::string Drainage::GetGameModeName()
 {
     return "Drainage";
+}
+
+
+/// <summary>Gets the game modes description.</summary>
+/// <returns>The game modes description</returns>
+std::string Drainage::GetGameModeDescription()
+{
+    return "Drainage slowly drains your boost and when you run out, your car explodes.";
 }
 
 

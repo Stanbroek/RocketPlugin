@@ -57,9 +57,9 @@ std::vector<std::string> PlayerMods::GetPlayersNames(const bool includeBots, con
 std::vector<std::string> PlayerMods::GetPlayersNames(const std::vector<PriWrapper>& players) const
 {
     std::vector<std::string> playersNames;
-    for (PriWrapper player : players) {
-        playersNames.push_back(player.GetPlayerName().ToString());
-    }
+    std::ranges::transform(players, std::back_inserter(playersNames), [](PriWrapper player) {
+        return player.GetPlayerName().ToString();
+    });
 
     return playersNames;
 }

@@ -12,6 +12,7 @@ public:
     bool IsActive() override;
     void Activate(bool active) override;
     std::string GetGameModeName() override;
+    std::string GetGameModeDescription() override;
 
 private:
     void tagRandomPlayer();
@@ -20,8 +21,8 @@ private:
     void removeHighlightsTaggedPlayer() const;
     void removeHighlights(PriWrapper player) const;
     void onTick(ServerWrapper server, void* params);
-    void onCarImpact(CarWrapper car, void* params);
-    void onRumbleItemActivated(ActorWrapper caller, void* params);
+    void onCarImpact(CarWrapper, void*);
+    void onRumbleItemActivated(ActorWrapper, void*);
 
     const unsigned long long emptyPlayer = static_cast<unsigned long long>(-1);
 

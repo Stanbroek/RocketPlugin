@@ -11,11 +11,12 @@ public:
     bool IsActive() override;
     void Activate(bool active) override;
     std::string GetGameModeName() override;
+    std::string GetGameModeDescription() override;
 
 private:
-    void onGoalScored(ActorWrapper caller);
-    void onGiveScorePre(ActorWrapper caller);
-    void onGiveScorePost(ActorWrapper caller) const;
+    void onGoalScored(PriWrapper scorer);
+    void onGiveScorePre(PriWrapper player);
+    void onGiveScorePost(PriWrapper player) const;
     void initGame();
 
     int juggernautTeam = 1;

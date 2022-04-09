@@ -8,13 +8,6 @@
  *  Wide string parser equivalents.
  */
 
-// Checks if the given string starts with given string.
-inline bool string_starts_with(const std::wstring& wstr, const std::wstring& begin)
-{
-    return wstr.compare(0, begin.length(), begin) == 0;
-}
-
-
 // Splits the string by delimiter.
 inline size_t split(const std::wstring& wstr, std::vector<std::wstring>& wstrs, const wchar_t delimiter)
 {
@@ -39,7 +32,7 @@ inline size_t split(const std::wstring& wstr, std::vector<std::wstring>& wstrs, 
 
 // Trim from start.
 inline std::wstring& ltrim(std::wstring& wstr) {
-    wstr.erase(wstr.begin(), std::find_if(wstr.begin(), wstr.end(), [](const int wc) {
+    wstr.erase(wstr.begin(), std::ranges::find_if(wstr, [](const int wc) {
 	    return !std::isspace(wc);
     }));
 

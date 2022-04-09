@@ -109,17 +109,22 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\External\ImGui\additions\imgui_additions.h" />
+    <ClInclude Include="..\External\ImGui\additions\imgui_rangeslider.h" />
+    <ClInclude Include="..\External\ImGui\additions\imgui_searchablecombo.h" />
+    <ClInclude Include="..\External\ImGui\additions\imgui_stdlib.h" />
+    <ClInclude Include="..\External\ImGui\additions\imgui_timeline.h" />
     <ClInclude Include="..\External\ImGui\imconfig.h" />
     <ClInclude Include="..\External\ImGui\imgui.h" />
-    <ClInclude Include="..\External\ImGui\imgui_additions.h" />
     <ClInclude Include="..\External\ImGui\imgui_internal.h" />
-    <ClInclude Include="..\External\ImGui\imgui_rangeslider.h" />
-    <ClInclude Include="..\External\ImGui\imgui_searchablecombo.h" />
     <ClInclude Include="..\External\ImGui\imstb_rectpack.h" />
     <ClInclude Include="..\External\ImGui\imstb_textedit.h" />
     <ClInclude Include="..\External\ImGui\imstb_truetype.h" />
     <ClInclude Include="..\External\simdjson\singleheader\simdjson.h" />
     <ClInclude Include="ExternalModules\ExternalModules.h" />
+    <ClInclude Include="GameModes\GhostCars.h" />
+    <ClInclude Include="Networking\MatchFileServer.h" />
+    <ClInclude Include="Networking\RPNetCode.h" />
     <ClInclude Include="RPConfig.h" />
     <ClInclude Include="GameModes\BoostShare.h" />
     <ClInclude Include="GameModes\RocketGameMode.h" />
@@ -148,17 +153,22 @@
     <ClInclude Include="Resource.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\External\ImGui\additions\imgui_additions.cpp" />
+    <ClCompile Include="..\External\ImGui\additions\imgui_rangeslider.cpp" />
+    <ClCompile Include="..\External\ImGui\additions\imgui_searchablecombo.cpp" />
+    <ClCompile Include="..\External\ImGui\additions\imgui_stdlib.cpp" />
+    <ClCompile Include="..\External\ImGui\additions\imgui_timeline.cpp" />
     <ClCompile Include="..\External\ImGui\imgui.cpp" />
-    <ClCompile Include="..\External\ImGui\imgui_additions.cpp" />
     <ClCompile Include="..\External\ImGui\imgui_demo.cpp" />
     <ClCompile Include="..\External\ImGui\imgui_draw.cpp" />
-    <ClCompile Include="..\External\ImGui\imgui_rangeslider.cpp" />
-    <ClCompile Include="..\External\ImGui\imgui_searchablecombo.cpp" />
     <ClCompile Include="..\External\ImGui\imgui_widgets.cpp" />
     <ClCompile Include="..\External\simdjson\singleheader\simdjson.cpp" />
     <ClCompile Include="ExternalModules\ExternalFunctions.cpp" />
     <ClCompile Include="ExternalModules\ExternalModules.cpp" />
     <ClCompile Include="ExternalModules\RPTests.cpp" />
+    <ClCompile Include="GameModes\GhostCars.cpp" />
+    <ClCompile Include="Networking\MatchFileServer.cpp" />
+    <ClCompile Include="Networking\RPNetCode.cpp" />
     <ClCompile Include="RPConfig.cpp" />
     <ClCompile Include="GameModes\BoostShare.cpp" />
     <ClCompile Include="GameModes\RumbleItems\RumbleItems.cpp" />

@@ -1,8 +1,8 @@
 ﻿// RocketPluginGUI.cpp
-// GUI for Rocket Plugin.
+// GUI for the Rocket Plugin plugin.
 //
 // Author:        Stanbroek
-// Version:       0.6.8 18/09/21
+// Version:       0.7.0 02/04/22
 // BMSDK version: 95
 
 #include "RPConfig.h"
@@ -11,9 +11,15 @@
 
 #include "ImGui/imgui_internal.h"
 
-#define IM_COL32_ERROR        (ImColor(204,   0,   0, 255))
-#define IM_COL32_WARNING      (ImColor(255,  60,   0,  80))
-#define IM_COL32_ERROR_BANNER (ImColor(211,  47,  47, 255))
+#include <Shlobj.h>
+
+#define IM_COL32_SUCCESS        (ImColor( 56, 142,  60, 255))  // Green 700
+#define IM_COL32_WARNING        (ImColor(245, 124,   0, 255))  // Orange 700
+#define IM_COL32_ERROR          (ImColor(211,  47,  47, 255))  // Red 700
+#define IM_COL32_SUCCESS_BANNER (ImColor( 67, 160,  71, 255))  // Green 600
+#define IM_COL32_WARNING_BANNER (ImColor(251, 140,   0, 225))  // Orange 600
+#define IM_COL32_ERROR_BANNER   (ImColor(229,  57,  53, 255))  // Red 600
+#define IM_COL32_BLUE_BANNER    (ImColor( 30, 136, 229, 255))  // Blue 600
 
 
 /*
@@ -36,10 +42,32 @@ void RocketPlugin::OnRender()
     if (*showMetricsWindow) {
         ImGui::ShowMetricsWindow(showMetricsWindow.get());
     }
+    if (*showColorTestWindow) {
+        if (ImGui::Begin("Color tests", showColorTestWindow.get())) {
+            ImGui::Banner("IM_COL32_SUCCESS_BANNER", IM_COL32_SUCCESS_BANNER);
+            ImGui::Banner("IM_COL32_WARNING_BANNER", IM_COL32_WARNING_BANNER);
+            ImGui::Banner("IM_COL32_ERROR_BANNER", IM_COL32_ERROR_BANNER);
+            ImGui::Spacing();
+            ImGui::TextColored(IM_COL32_SUCCESS, "IM_COL32_SUCCESS");
+            ImGui::TextColored(IM_COL32_WARNING, "IM_COL32_WARNING");
+            ImGui::TextColored(IM_COL32_ERROR, "IM_COL32_ERROR");
+            ImGui::Spacing();
+            constexpr float delay = 5.f;
+            const float fraction = static_cast<float>(fmod(ImGui::GetCurrentContext()->Time, delay)) / delay;
+            ImGui::PushStyleColor(ImGuiCol_PlotHistogram, IM_COL32_SUCCESS.Value);
+            ImGui::ProgressBar(fraction, ImVec2(-1, 0), "IM_COL32_SUCCESS");
+            ImGui::PushStyleColor(ImGuiCol_PlotHistogram, IM_COL32_WARNING.Value);
+            ImGui::ProgressBar(fraction, ImVec2(-1, 0), "IM_COL32_WARNING");
+            ImGui::PushStyleColor(ImGuiCol_PlotHistogram, IM_COL32_ERROR.Value);
+            ImGui::ProgressBar(fraction, ImVec2(-1, 0), "IM_COL32_ERROR");
+            ImGui::PopStyleColor(3);
+        }
+        ImGui::End();
+    }
 #endif
 
     ImGui::SetNextWindowSizeConstraints(ImVec2(800, 600), ImVec2(FLT_MAX, FLT_MAX));
-    if (ImGui::Begin((menuTitle + "###RocketPlugin").c_str(), &isWindowOpen)) {
+    if (ImGui::Begin(menuTitle + "###RocketPlugin", &isWindowOpen)) {
         if (ImGui::BeginTabBar("#RPTabBar", ImGuiTabBarFlags_NoCloseWithMiddleMouseButton | ImGuiTabBarFlags_NoTooltip)) {
             renderMultiplayerTab();
             renderInGameModsTab();
@@ -226,8 +254,11 @@ bool RocketPlugin::renderCustomMapsSelection(std::map<std::filesystem::path, std
 void RocketPlugin::renderMultiplayerTab()
 {
     if (ImGui::BeginTabItem("Multiplayer")) {
+        if (isJoiningHost) {
+            ImGui::Banner("Joining Host...", IM_COL32_SUCCESS, ImVec2(0, 0), false);
+        }
         if (!errors.empty()) {
-            if (ImGui::Banner(errors.front().c_str(), IM_COL32_ERROR_BANNER)) {
+            if (ImGui::Banner(errors.front(), IM_COL32_ERROR_BANNER)) {
                 errors.pop();
             }
         }
@@ -313,7 +344,7 @@ void RocketPlugin::renderMultiplayerTabHost()
         renderMultiplayerTabHostAdvancedSettings();
         ImGui::Separator();
 
-        if (isHostingLocalGame()) {
+        if (IsHostingLocalGame()) {
             if (ImGui::Button("Host New Match")) {
                 Execute([this](GameWrapper*) {
                     HostGame();
@@ -416,27 +447,29 @@ void RocketPlugin::renderMultiplayerTabHostMutatorSettings()
 {
     if (ImGui::CollapsingHeader("Mutators Settings")) {
         const ImVec2 MutatorsSettingsWindowSize = { -ImGui::GetFrameWidthWithSpacing() * 4,
-                                                    static_cast<float>(mutators.size()) * 23.f };
+                                                    static_cast<float>(mutators.size() + customMutators.size()) * 23.f };
         if (ImGui::BeginChild("#MutatorsSettings", MutatorsSettingsWindowSize, false, ImGuiWindowFlags_NoScrollbar)) {
             ImGui::BeginColumns("Mutators", 2, ImGuiColumnsFlags_NoBorder);
             {
                 static float columnWidth = 125;
                 ImGui::SetColumnWidth(0, columnWidth + ImGui::GetStyle().ItemSpacing.x);
                 float maxColumnWidth = 0;
-                for (GameSetting& mutator : mutators) {
-                    const std::string displayName = mutator.DisplayCategoryName + ":";
-                    const ImVec2 size = ImGui::CalcTextSize(displayName.c_str());
-                    if (size.x > maxColumnWidth) {
-                        maxColumnWidth = size.x;
-                    }
-                    ImGui::SetCursorPosX(columnWidth - size.x + ImGui::GetStyle().ItemSpacing.x);
-                    ImGui::TextUnformatted(displayName.c_str());
-                    ImGui::NextColumn();
+                for (auto gameSettings : { std::ref(mutators), std::ref(customMutators) }) {
+                    for (GameSetting& mutator : gameSettings.get()) {
+                        const std::string displayName = mutator.DisplayCategoryName + ":";
+                        const ImVec2 size = ImGui::CalcTextSize(displayName);
+                        if (size.x > maxColumnWidth) {
+                            maxColumnWidth = size.x;
+                        }
+                        ImGui::SetCursorPosX(columnWidth - size.x + ImGui::GetStyle().ItemSpacing.x);
+                        ImGui::TextUnformatted(displayName);
+                        ImGui::NextColumn();
 
-                    const std::string label = "##" + mutator.InternalCategoryName;
-                    ImGui::PushItemWidth(ImGui::GetWindowWidth() / 3 * 2);
-                    ImGui::SliderArray(label.c_str(), &mutator.CurrentSelected, mutator.DisplayName);
-                    ImGui::NextColumn();
+                        const std::string label = "##" + mutator.InternalCategoryName;
+                        ImGui::SetNextItemWidth(ImGui::GetWindowWidth() / 3 * 2);
+                        ImGui::SliderArray(label, &mutator.CurrentSelected, mutator.DisplayName);
+                        ImGui::NextColumn();
+                    }
                 }
                 if (maxColumnWidth > columnWidth) {
                     columnWidth = maxColumnWidth;
@@ -455,14 +488,14 @@ void RocketPlugin::renderMultiplayerTabHostMutatorSettings()
             }
             for (const std::filesystem::path& presetPath : presetPaths) {
                 std::string filename = presetPath.stem().string();
-                if (ImGui::Button(filename.c_str(), ImVec2(-5, 0))) {
+                if (ImGui::Button(filename, ImVec2(-5, 0))) {
                     Execute([this, presetPath](GameWrapper*) {
                         loadPreset(presetPath);
                     });
                 }
             }
             if (presetPaths.empty()) {
-                ImGui::PushItemWidth(-5);
+                ImGui::SetNextItemWidth(-5);
                 ImGui::TextUnformatted("No presets found.");
             }
             ImGui::Separator();
@@ -496,7 +529,7 @@ void RocketPlugin::renderMultiplayerTabHostAdvancedSettings()
     if (ImGui::CollapsingHeader("Advanced Settings")) {
         ImGui::TextUnformatted(" Password: (optional)");
         ImGui::InputText("##pswd_host", &hostPswd, ImGuiInputTextFlags_Password);
-        ImGui::TextUnformatted(fmt::format(" Internal host port: (default is {:d})", DEFAULT_PORT).c_str());
+        ImGui::TextUnformatted(fmt::format(" Internal host port: (default is {:d})", DEFAULT_PORT));
         // TODO, Allow changing the internal host port.
         ImGui::BeginDisabled();
         const bool invalidHostPortInternal = !Networking::IsValidPort(hostPortInternal);
@@ -512,10 +545,14 @@ void RocketPlugin::renderMultiplayerTabHostAdvancedSettings()
             ImGui::InputScalar("##HostPortInternal", ImGuiDataType_U16, &hostPortInternal);
         }
         ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+            ImGui::SetTooltip("To change the host port add 'PORT=7777' to your Rocket Leagues launch options.");
+        }
         ImGui::TextUnformatted(" Network options:");
         ImGui::Indent(4);
         renderMultiplayerTabHostAdvancedSettingsUPnPSettings();
         renderMultiplayerTabHostAdvancedSettingsP2PSettings();
+        renderMultiplayerTabHostAdvancedSettingsMatchFileHostSettings();
         ImGui::Unindent(4);
         ImGui::Checkbox("Host game with party", &hostWithParty);
         ImGui::SameLine();
@@ -539,12 +576,12 @@ void RocketPlugin::renderMultiplayerTabHostAdvancedSettingsUPnPSettings()
     if (ImGui::CollapsingHeader("UPnP Settings")) {
         ImGui::Indent(10);
         ImGui::PushStyleColor(ImGuiCol_Border, static_cast<ImVec4>(IM_COL32_WARNING));
-        if (ImGui::BeginChild("##UPnPWarning", ImVec2(0, 50), true)) {
+        if (ImGui::BeginChild("##UPnPWarning", ImVec2(0, 65), true)) {
             ImGui::Dummy(ImVec2(140.0f, 0.0f));
             ImGui::SameLine();
             ImGui::TextUnformatted("WARNING these are advanced settings!");
-            ImGui::TextUnformatted("Using these without knowing what your are doing could put your computer and "
-                                   "network at risk.");
+            ImGui::TextUnformatted("Using these without knowing what your are doing could put your computer and network at risk.");
+            ImGui::BulletText("UPnP allows you to port forward ports on your router from your pc.");
         }
         ImGui::EndChild();
         ImGui::PopStyleColor();
@@ -560,7 +597,7 @@ void RocketPlugin::renderMultiplayerTabHostAdvancedSettingsUPnPSettings()
         }
         ImGui::SameLine();
         if (upnpClient->DiscoveryFailed()) {
-            ImGui::TextColoredWrapped(IM_COL32_ERROR, upnpClient->GetDiscoveryStatus().c_str());
+            ImGui::TextColoredWrapped(IM_COL32_ERROR, upnpClient->GetDiscoveryStatus());
             if (ImGui::IsItemHovered()) {
                 ImGui::SetTooltip("Make sure your router supports UPnP \nand has it enabled it the settings.");
             }
@@ -570,9 +607,9 @@ void RocketPlugin::renderMultiplayerTabHostAdvancedSettingsUPnPSettings()
         }
         const bool invalidHostPortExternal = !Networking::IsValidPort(hostPortExternal);
         if (upnpClient->DiscoveryFinished()) {
-            if (ImGui::Button(fmt::format("Forward port {:d}" + (invalidHostPortExternal
-                                                                 ? DEFAULT_PORT
-                                                                 : hostPortExternal)).c_str())) {
+            if (ImGui::Button(fmt::format("Forward port {:d}", (invalidHostPortExternal
+                                                                ? DEFAULT_PORT
+                                                                : hostPortExternal)))) {
                 if (!upnpClient->ServiceForwardPortActive()) {
                     Execute([this, invalidHostPortExternal](GameWrapper*) {
                         upnpClient->ForwardPort(invalidHostPortExternal ? DEFAULT_PORT : hostPortInternal,
@@ -586,7 +623,7 @@ void RocketPlugin::renderMultiplayerTabHostAdvancedSettingsUPnPSettings()
             }
             if (upnpClient->ServiceForwardPortFailed()) {
                 ImGui::SameLine();
-                ImGui::TextColoredWrapped(IM_COL32_ERROR, upnpClient->GetForwardPortStatus().c_str());
+                ImGui::TextColoredWrapped(IM_COL32_ERROR, upnpClient->GetForwardPortStatus());
             }
             else if (upnpClient->ServiceForwardPortFinished()) {
                 ImGui::SameLine();
@@ -596,12 +633,11 @@ void RocketPlugin::renderMultiplayerTabHostAdvancedSettingsUPnPSettings()
         ImGui::TextUnformatted("External Address:");
         const float itemWidth = std::max(0.f, ImGui::GetCurrentWindowRead()->DC.ItemWidth - ImGui::CalcTextSize(":").x);
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, ImGui::GetStyle().ItemSpacing.y));
-        ImGui::PushItemWidth(itemWidth / 3 * 2);
         ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+        ImGui::SetNextItemWidth(itemWidth / 3 * 2);
         ImGui::InputText("##ExternalIPAddress", upnpClient->GetExternalIpAddressBuffer(),
                          ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_AutoSelectAll);
-        ImGui::PopStyleVar();
-        ImGui::PopItemWidth();
+        ImGui::PopStyleVar();  // ImGuiStyleVar_Alpha
         ImGui::SameLine();
         ImGui::TextUnformatted(":");
         ImGui::SameLine();
@@ -618,7 +654,7 @@ void RocketPlugin::renderMultiplayerTabHostAdvancedSettingsUPnPSettings()
             ImGui::InputScalar("##UPnPHostPortExternal", ImGuiDataType_U16, &hostPortExternal);
         }
         ImGui::PopItemWidth();
-        ImGui::PopStyleVar();
+        ImGui::PopStyleVar();  // ImGuiStyleVar_ItemSpacing
         ImGui::TextUnformatted("Duration to open your port for: (0 means indefinite)");
         constexpr int weekDuration = 60 * 60 * 24 * 7;
         ImGui::DragTime(" hour:minutes:seconds##portLeaseDuration", &portLeaseDuration, 60, 0, weekDuration);
@@ -626,7 +662,7 @@ void RocketPlugin::renderMultiplayerTabHostAdvancedSettingsUPnPSettings()
             ImGui::TextUnformatted("Open ports:");
             ImGui::SameLine();
             if (upnpClient->ServiceClosePortFailed()) {
-                ImGui::TextColoredWrapped(IM_COL32_ERROR, upnpClient->GetClosePortStatus().c_str());
+                ImGui::TextColoredWrapped(IM_COL32_ERROR, upnpClient->GetClosePortStatus());
             }
             else if (upnpClient->ServiceClosePortFinished()) {
                 ImGui::TextWrapped(upnpClient->GetClosePortStatus());
@@ -637,7 +673,7 @@ void RocketPlugin::renderMultiplayerTabHostAdvancedSettingsUPnPSettings()
             }
             else {
                 for (const unsigned short openPort : openPorts) {
-                    if (ImGui::Button(std::to_string(openPort).c_str())) {
+                    if (ImGui::Button(std::to_string(openPort))) {
                         if (!upnpClient->ServiceClosePortActive()) {
                             Execute([this, openPort](GameWrapper*) {
                                 upnpClient->ClosePort(openPort);
@@ -677,12 +713,12 @@ void RocketPlugin::renderMultiplayerTabHostAdvancedSettingsP2PSettings()
     if (ImGui::CollapsingHeader("P2P Settings")) {
         ImGui::Indent(10);
         ImGui::PushStyleColor(ImGuiCol_Border, static_cast<ImVec4>(IM_COL32_WARNING));
-        if (ImGui::BeginChild("##P2PWarning", ImVec2(0, 50), true)) {
+        if (ImGui::BeginChild("##P2PWarning", ImVec2(0, 65), true)) {
             ImGui::Dummy(ImVec2(140.0f, 0.0f));
             ImGui::SameLine();
             ImGui::TextUnformatted("WARNING these are advanced settings!");
-            ImGui::TextUnformatted("Using these without knowing what your are doing could put your computer and "
-                                   "network at risk.");
+            ImGui::TextUnformatted("Using these without knowing what your are doing could put your computer and network at risk.");
+            ImGui::BulletText("This will try to create a P2P connection by punching a hole through the NAT.");
         }
         ImGui::EndChild();
         ImGui::PopStyleColor();
@@ -701,7 +737,7 @@ void RocketPlugin::renderMultiplayerTabHostAdvancedSettingsP2PSettings()
         const bool invalidHostPortExternal = !Networking::IsValidPort(hostPortExternal);
         if (p2pHost->GetNATType() == P2PHost::NATType::NAT_FULL_CONE || 
             p2pHost->GetNATType() == P2PHost::NATType::NAT_RESTRICTED_PORT) {
-            ImGui::TextUnformatted(fmt::format(" External host port: (default is {:d})", DEFAULT_PORT).c_str());
+            ImGui::TextUnformatted(fmt::format(" External host port: (default is {:d})", DEFAULT_PORT));
             if (invalidHostPortExternal) {
                 ImGui::BeginErrorBorder();
                 ImGui::InputScalar("##NATHostPortExternal", ImGuiDataType_U16, &hostPortExternal);
@@ -717,25 +753,24 @@ void RocketPlugin::renderMultiplayerTabHostAdvancedSettingsP2PSettings()
         switch (p2pHost->GetNATType()) {
             case P2PHost::NATType::NAT_FULL_CONE:
                 if (ImGui::Button(fmt::format("Punch through port {:d}",
-                                              invalidHostPortExternal ? DEFAULT_PORT : hostPortExternal).c_str())) {
+                                              invalidHostPortExternal ? DEFAULT_PORT : hostPortExternal))) {
                     Execute([this, invalidHostPortExternal](GameWrapper*) {
                         p2pHost->PunchPort(NAT_PUNCH_ADDR, invalidHostPortExternal ? DEFAULT_PORT : hostPortExternal);
                     });
                 }
                 break;
             case P2PHost::NATType::NAT_RESTRICTED_PORT:
-                if (connections.size() > 1 && connections[connections.size() - 1].IP[0] == '\0' &&
-                    connections[connections.size() - 2].IP[0] == '\0') {
+                if (connections.size() > 1 && connections[connections.size() - 1].IP.empty() &&
+                                              connections[connections.size() - 2].IP.empty()) {
                     connections.pop_back();
                 }
-                if (connections.empty() || connections.back().IP[0] != '\0') {
-                    connections.push_back({ { '\0' }, true });
+                if (connections.empty() || !connections.back().IP.empty()) {
+                    connections.push_back({ "", true});
                 }
                 for (size_t i = 0; i < connections.size(); i++) {
                     if (connections[i].InvalidIP) {
                         ImGui::BeginErrorBorder();
-                        if (ImGui::InputText(fmt::format("##P2PClientIP_{:d}", i).c_str(), &connections[i].IP[0],
-                                             sizeof P2PIP::IP)) {
+                        if (ImGui::InputText(fmt::format("##P2PClientIP_{:d}", i), &connections[i].IP)) {
                             connections[i].InvalidIP = !Networking::IsValidIPv4(connections[i].IP);
                         }
                         ImGui::EndErrorBorder();
@@ -744,13 +779,12 @@ void RocketPlugin::renderMultiplayerTabHostAdvancedSettingsP2PSettings()
                         }
                     }
                     else {
-                        if (ImGui::InputText(fmt::format("##P2PClientIP_{:d}", i).c_str(), &connections[i].IP[0],
-                                             sizeof P2PIP::IP)) {
+                        if (ImGui::InputText(fmt::format("##P2PClientIP_{:d}", i), &connections[i].IP)) {
                             connections[i].InvalidIP = !Networking::IsValidIPv4(connections[i].IP);
                         }
                     }
                     ImGui::SameLine();
-                    if (ImGui::Button(fmt::format("Start Connection##P2PClientConn_{:d}", i).c_str())) {
+                    if (ImGui::Button(fmt::format("Start Connection##P2PClientConn_{:d}", i))) {
                         p2pHost->PunchPort(connections[i].IP, hostPortExternal);
                         Execute([this, addr = connections[i].IP](GameWrapper*) {
                             p2pHost->PunchPort(addr, hostPortExternal);
@@ -768,6 +802,59 @@ void RocketPlugin::renderMultiplayerTabHostAdvancedSettingsP2PSettings()
         if (ImGui::IsItemHovered()) {
             ImGui::SetTooltip("Failed to create networking thread.");
         }
+    }
+}
+
+
+/// <summary>Renders the match file host settings in the advanced settings in the host section in game multiplayer tab.</summary>
+void RocketPlugin::renderMultiplayerTabHostAdvancedSettingsMatchFileHostSettings()
+{
+    if (ImGui::CollapsingHeader("Match File Host Settings")) {
+        ImGui::Indent(10);
+        ImGui::PushStyleColor(ImGuiCol_Border, static_cast<ImVec4>(IM_COL32_WARNING));
+        if (ImGui::BeginChild("##MatchFileHostWarning", ImVec2(0, 80), true)) {
+            ImGui::Dummy(ImVec2(140.0f, 0.0f));
+            ImGui::SameLine();
+            ImGui::TextUnformatted("WARNING these are advanced settings!");
+            ImGui::TextUnformatted("Using these without knowing what your are doing could put your computer and network at risk.");
+            ImGui::BulletText("This will host a local file server that allows clients to download the map you are currently");
+            ImGui::TextUnformatted("      playing before joining.");
+        }
+        ImGui::EndChild();
+        ImGui::PopStyleColor();
+        ImGui::TextUnformatted("Match File Host Address:");
+        const float itemWidth = std::max(0.f, ImGui::GetCurrentWindowRead()->DC.ItemWidth - ImGui::CalcTextSize(":").x);
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, ImGui::GetStyle().ItemSpacing.y));
+        ImGui::SetNextItemWidth(itemWidth / 3 * 2);
+        ImGui::InputText("##MatchFileHostAddress", &fileServerAddress);
+        ImGui::SameLine();
+        ImGui::TextUnformatted(":");
+        ImGui::SameLine();
+        ImGui::PushItemWidth(itemWidth / 3);
+        const bool invalidFileServerPort = !Networking::IsValidPort(fileServerPort);
+        if (invalidFileServerPort) {
+            ImGui::BeginErrorBorder();
+        }
+        ImGui::InputScalar("##UPnPHostPortExternal", ImGuiDataType_U16, &fileServerPort);
+        if (invalidFileServerPort) {
+            ImGui::EndErrorBorder();
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Invalid port");
+            }
+        }
+        ImGui::PopItemWidth();
+        ImGui::PopStyleVar();  // ImGuiStyleVar_ItemSpacing
+        if (matchFileServer == nullptr) {
+            if (ImGui::Button("Start Server")) {
+                matchFileServer = std::make_unique<MatchFileServer>(fileServerAddress, fileServerPort);
+            }
+        }
+        else {
+            if (ImGui::Button("Stop Server")) {
+                matchFileServer = nullptr;
+            }
+        }
+        ImGui::Unindent(10);
     }
 }
 
@@ -799,6 +886,26 @@ void BeginHostStatusBorder(const Networking::DestAddrType addrType, const Networ
 }
 
 
+std::string format_file_size(const size_t size_in_bytes)
+{
+    const long double sizeInBytes = static_cast<long double>(size_in_bytes);
+    constexpr long double gigabyte = 10e9;
+    if (sizeInBytes > gigabyte) {
+        return fmt::format("{:.1Lf}GB", sizeInBytes / gigabyte);
+    }
+    constexpr long double megabyte = 10e6;
+    if (sizeInBytes > megabyte) {
+        return fmt::format("{:.1Lf}MB", sizeInBytes / megabyte);
+    }
+    constexpr long double kilobyte = 10e3;
+    if (sizeInBytes > kilobyte) {
+        return fmt::format("{:.1Lf}KB", sizeInBytes / kilobyte);
+    }
+
+    return fmt::format("{:d}B", size_in_bytes);
+}
+
+
 /// <summary>Renders the join section in game multiplayer tab.</summary>
 void RocketPlugin::renderMultiplayerTabJoin()
 {
@@ -811,54 +918,150 @@ void RocketPlugin::renderMultiplayerTabJoin()
         ImGui::Separator();
 
         ImGui::TextUnformatted(" IP Address:");
-        static Networking::HostStatus hostOnline = Networking::HostStatus::HOST_UNKNOWN;
-        static Networking::DestAddrType addressType = Networking::GetDestAddrType(joinIP->c_str());
-        BeginHostStatusBorder(addressType, hostOnline);
+        static std::once_flag once;
+        std::call_once(once, [this]() {
+            addressType = Networking::GetDestAddrType(*joinIP);
+        });
+        BeginHostStatusBorder(addressType, hostStatus);
         ImGuiInputTextFlags flags = ImGuiInputTextFlags_None;
-        if (hostOnline == Networking::HostStatus::HOST_BUSY) {
+        if (serverStatusRequest.valid() && !serverStatusRequest._Is_ready() ||
+            mapDownloadRequest.valid() && !mapDownloadRequest._Is_ready()) {
             flags |= ImGuiInputTextFlags_ReadOnly;
         }
         if (ImGui::InputText("##ip_join", joinIP.get(), flags)) {
             cvarManager->getCvar("mp_ip").setValue(*joinIP);
-            addressType = Networking::GetDestAddrType(joinIP->c_str());
-            if (hostOnline != Networking::HostStatus::HOST_BUSY) {
-                hostOnline = Networking::HostStatus::HOST_UNKNOWN;
+            addressType = Networking::GetDestAddrType(*joinIP);
+            if (hostStatus != Networking::HostStatus::HOST_BUSY) {
+                hostStatus = Networking::HostStatus::HOST_UNKNOWN;
             }
         }
         ImGui::EndBorder();
-        if (hostOnline == Networking::HostStatus::HOST_UNKNOWN &&
+        bool updateServerStatus = false;
+        const bool ipTextFieldActive = ImGui::IsItemActive();
+        if (hostStatus == Networking::HostStatus::HOST_UNKNOWN &&
             addressType != Networking::DestAddrType::UNKNOWN_ADDR) {
-            // Only ping when the user is finished typing.
-            if (ImGui::IsItemActiveLastFrame() && !ImGui::IsItemActive()) {
-                Networking::PingHost(*joinIP, static_cast<unsigned short>(*joinPort), &hostOnline, true);
+            // Only talk to the server when the user has finished typing.
+            if (ImGui::IsItemActiveLastFrame() && !ipTextFieldActive) {
+                updateServerStatus = true;
             }
         }
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip(Networking::GetHostStatusHint(addressType, hostOnline));
+            ImGui::SetTooltip(Networking::GetHostStatusHint(addressType, hostStatus));
         }
         ImGui::TextUnformatted(" Port:");
-        if (!Networking::IsValidPort(*joinPort)) {
+        const bool validPort = Networking::IsValidPort(*joinPort);
+        if (!validPort) {
             ImGui::BeginErrorBorder();
-            if (ImGui::InputScalar("##port_join", ImGuiDataType_U16, joinPort.get())) {
-                cvarManager->getCvar("mp_port").setValue(*joinPort);
+        }
+        if (ImGui::InputScalar("##port_join", ImGuiDataType_U16, joinPort.get(), nullptr, nullptr, nullptr, flags)) {
+            cvarManager->getCvar("mp_port").setValue(*joinPort);
+            if (hostStatus != Networking::HostStatus::HOST_BUSY) {
+                hostStatus = Networking::HostStatus::HOST_UNKNOWN;
             }
+        }
+        if (!validPort) {
             ImGui::EndErrorBorder();
             if (ImGui::IsItemHovered()) {
                 ImGui::SetTooltip("Invalid port");
             }
         }
-        else {
-            if (ImGui::InputScalar("##port_join", ImGuiDataType_U16, joinPort.get())) {
-                cvarManager->getCvar("mp_port").setValue(*joinPort);
+        if (hostStatus == Networking::HostStatus::HOST_UNKNOWN &&
+            addressType != Networking::DestAddrType::UNKNOWN_ADDR &&
+            validPort && !ipTextFieldActive &&
+            // Only talk to the server when the user has finished typing.
+            !ImGui::IsItemActive() && ImGui::IsItemActiveLastFrame()) {
+            updateServerStatus = true;
+        }
+        else if (ImGui::IsItemActive() || !validPort) {
+            updateServerStatus = false;
+        }
+        if (updateServerStatus) {
+            if (mapDownloadRequest.valid()) {
+                mapDownloadRequest.wait();
             }
+            mapDownloadRequest = std::future<bool>();
+            serverStatusRequest = MatchFileServer::GetServerStatus(*joinIP, *joinPort, &hostStatus);
         }
         ImGui::TextUnformatted(" Password: (optional)");
         static char pswdBuf[64] = "";
         ImGui::InputText("##pswd_join", pswdBuf, 64, ImGuiInputTextFlags_Password);
+
+        if (serverStatusRequest._Is_ready()) {
+            const MatchFileServer::ServerStatus serverStatus = serverStatusRequest._Ptr()->_Get_value(false);
+            if (serverStatus.CurrentMap.FileSize > 0) {
+                ImGui::TextWrapped(fmt::format("Version: {:s}", serverStatus.Version));
+                ImGui::TextWrapped("Maps:");
+                if (serverStatus.CurrentMap.Override) {
+                    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32_WARNING.Value);
+                }
+                else if (serverStatus.CurrentMap.Loaded) {
+                    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32_SUCCESS.Value);
+                }
+                ImGui::TextWrapped(fmt::format("{:s} ({:s})", quote(serverStatus.CurrentMap.MapName), format_file_size(serverStatus.CurrentMap.FileSize)));
+                if (serverStatus.CurrentMap.Loaded) {
+                    ImGui::PopStyleColor();
+                    if (ImGui::IsItemHovered()) {
+                        ImGui::SetTooltip("Map is already loaded.");
+                    }
+                }
+            }
+            if (serverStatus.ShouldDownloadMap()) {
+                if (mapDownloadRequest._Ptr() == nullptr) {
+                    if (ImGui::Button("Download map")) {
+                        ImGui::OpenPopup("Download map");
+                    }
+                    bool open = true;
+                    static std::filesystem::path downloadPath;
+                    if (ImGui::BeginPopupModal("Download map", &open)) {
+                        if (downloadPath.empty()) {
+                            downloadPath = (mapDownloadPath / serverStatus.CurrentMap.MapName).replace_extension(mapDownloadExtension);
+                            if (std::filesystem::create_directories(downloadPath.parent_path())) {
+                                BM_TRACE_LOG("Created download folder");
+                            }
+                        }
+                        ImGui::TextWrapped(fmt::format("Warning downloading files from people you do not trust can be dangerous.\n\n"
+                            "Are you sure you download {:s} {:s} from '{:s}:{:d}' to {:s}?", 
+                            quote(serverStatus.CurrentMap.MapName), format_file_size(serverStatus.CurrentMap.FileSize), *joinIP, *joinPort, quote(downloadPath.string())));
+                        if (ImGui::Button("Yes")) {
+                            mapDownloadRequestProgress = 0.f;
+                            mapDownloadRequest = MatchFileServer::DownloadMap(*joinIP, *joinPort, downloadPath, &mapDownloadRequestProgress);
+                            ImGui::CloseCurrentPopup();
+                        }
+                        ImGui::SameLine();
+                        if (ImGui::Button("No")) {
+                            ImGui::CloseCurrentPopup();
+                        }
+                        ImGui::EndPopup();
+                    }
+                    else {
+                        downloadPath.clear();
+                    }
+                }
+                else if (mapDownloadRequest._Is_ready()) {
+                    if (mapDownloadRequest._Ptr()->_Get_value(false)) {
+                        ImGui::PushStyleColor(ImGuiCol_PlotHistogram, IM_COL32_SUCCESS.Value);
+                        ImGui::ProgressBar(1.f, ImVec2(-1, 0), "Map Download Finished");
+                        ImGui::PopStyleColor();
+                    }
+                    else {
+                        ImGui::PushStyleColor(ImGuiCol_PlotHistogram, IM_COL32_ERROR.Value);
+                        ImGui::ProgressBar(mapDownloadRequestProgress, ImVec2(-1, 0), fmt::format("Error {:.0f}%", std::floorf(mapDownloadRequestProgress * 100)));
+                        ImGui::PopStyleColor();
+                        if (ImGui::IsItemHovered()) {
+                            ImGui::SetTooltip("Check the BakkesMod console for the error logs.");
+                        }
+                    }
+                }
+                else {
+                    ImGui::PushStyleColor(ImGuiCol_PlotHistogram, IM_COL32_SUCCESS.Value);
+                    ImGui::ProgressBar(mapDownloadRequestProgress, ImVec2(-1, 0), fmt::format("{:.0f}%", std::roundf(mapDownloadRequestProgress * 100)));
+                    ImGui::PopStyleColor();
+                }
+            }
+        }
         ImGui::Separator();
 
         ImGui::Unindent(5);
-        static bool isCurrentMapJoinable = true;
         if (ImGui::Checkbox("Joining a custom map", &joinCustomMap)) {
             if (joinCustomMap) {
                 refreshCustomMapPaths = true;
@@ -885,6 +1088,10 @@ void RocketPlugin::renderMultiplayerTabJoin()
         ImGui::Indent(5);
         if (isCurrentMapJoinable || !failedToGetMapPackageFileCache) {
             if (ImGui::Button("Join")) {
+                if (serverStatusRequest.valid()) {
+                    serverStatusRequest.wait();
+                }
+                serverStatusRequest = std::future<MatchFileServer::ServerStatus>();
                 Execute([this](GameWrapper*) {
                     JoinGame(pswdBuf);
                 });
@@ -1117,27 +1324,27 @@ void RocketPlugin::renderInGameModsTabPlayerMods()
                 const std::string displayName = player.GetPlayerName().ToString();
                 const std::string uniqueName = player.GetUniqueIdWrapper().str();
                 if (player.GetbBot()) {
-                    ImGui::Text("(bot) %s", displayName.c_str());
+                    ImGui::TextUnformatted(fmt::format("(bot) {:s}", displayName));
                 }
                 else {
-                    ImGui::TextUnformatted(displayName.c_str());
+                    ImGui::TextUnformatted(displayName);
                 }
                 ImGui::NextColumn();
                 bool isAdmin = playerMods.GetIsAdmin(player);
-                if (ImGui::Checkbox(("##Admin_" + uniqueName).c_str(), &isAdmin)) {
+                if (ImGui::Checkbox(("##Admin_" + uniqueName), &isAdmin)) {
                     Execute([this, player, isAdmin](GameWrapper*) {
                         playerMods.SetIsAdmin(player, isAdmin);
                     });
                 }
                 ImGui::NextColumn();
                 bool isHidden = playerMods.GetIsHidden(player);
-                if (ImGui::Checkbox(("##Hidden_" + uniqueName).c_str(), &isHidden)) {
+                if (ImGui::Checkbox(("##Hidden_" + uniqueName), &isHidden)) {
                     Execute([this, player, isHidden](GameWrapper*) {
                         playerMods.SetIsHidden(player, isHidden);
                     });
                 }
                 ImGui::NextColumn();
-                if (ImGui::Button(("Demolish##_" + uniqueName).c_str())) {
+                if (ImGui::Button(("Demolish##_" + uniqueName))) {
                     Execute([this, player](GameWrapper*) {
                         playerMods.Demolish(player);
                     });
@@ -1224,6 +1431,8 @@ void RocketPlugin::renderInGameModsTabCarPhysicsMods()
 }
 
 
+#include "GameModes/GhostCars.h"
+
 /*
  *  Game modes
  */
@@ -1247,7 +1456,7 @@ void RocketPlugin::renderGameModesTab()
                     gameModeName = customGameMode->GetGameModeName();
                     gameModeActive = customGameMode->IsActive();
                 }
-                if (ImGui::SwitchCheckbox(fmt::format("##{:s}_{:d}", gameModeName, i).c_str(), &gameModeActive)) {
+                if (ImGui::SwitchCheckbox(fmt::format("##{:s}_{:d}", gameModeName, i), &gameModeActive)) {
                     Execute([this, customGameMode, gameModeActive](GameWrapper*) {
                         customGameMode->Activate(gameModeActive);
                     });
@@ -1257,7 +1466,7 @@ void RocketPlugin::renderGameModesTab()
                 const float backupFrameRounding = ImGui::GetStyle().FrameRounding;
                 ImGui::GetStyle().ButtonTextAlign.x = 0;
                 ImGui::GetStyle().FrameRounding = 3;
-                if (ImGui::ButtonEx(gameModeName.c_str(), ImVec2(-1, 0), ImGuiButtonFlags_AlignTextBaseLine)) {
+                if (ImGui::ButtonEx(gameModeName, ImVec2(-1, 0), ImGuiButtonFlags_AlignTextBaseLine)) {
                     customGameModeSelected = i;
                 }
                 ImGui::GetStyle().ButtonTextAlign.x = backupButtonTextAlignX;
@@ -1271,13 +1480,30 @@ void RocketPlugin::renderGameModesTab()
         ImGui::SameLine();
         if (ImGui::BeginChild("##GameModesOptions", ImVec2(0, 0), true)) {
             if (customGameModeSelected < customGameModes.size()) {
-                const std::shared_ptr<RocketGameMode> customGameMode = customGameModes[customGameModeSelected];
+                const std::shared_ptr<RocketGameMode>& customGameMode = customGameModes[customGameModeSelected];
                 if (customGameMode != nullptr) {
-                    ImGui::TextUnformatted(customGameMode->GetGameModeName().c_str());
+                    ImGui::TextUnformatted(customGameMode->GetGameModeName());
+                    const std::string desc = customGameMode->GetGameModeDescription();
+                    if (!desc.empty()) {
+                        ImGui::SameLine();
+                        ImGui::TextUnformatted("(?)");
+                        if (ImGui::IsItemHovered()) {
+                            ImGui::SetTooltip(desc);
+                        }
+                    }
                     ImGui::Separator();
 
                     if (customGameMode->IsActive()) {
-                        customGameMode->RenderOptions();
+                        const auto networkedCustomGameMode = std::dynamic_pointer_cast<NetworkedModule>(customGameMode);
+                        if (networkedCustomGameMode != nullptr && networkedCustomGameMode->networked) {
+                            ImGui::Banner("This game mode is controlled by the host.", IM_COL32_BLUE_BANNER, ImVec2(0, 0), false);
+                            ImGui::BeginDisabled();
+                            customGameMode->RenderOptions();
+                            ImGui::EndDisabled();
+                        }
+                        else {
+                            customGameMode->RenderOptions();
+                        }
                     }
                     else {
                         ImGui::BeginDisabled();

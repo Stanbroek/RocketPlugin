@@ -2,8 +2,9 @@
 // A BakkesMod plugin for joining, hosting and manipulating multiplayer games.
 //
 // Author:        Stanbroek
-// Version:       0.6.8 18/09/21
+// Version:       0.7.0 07/04/22
 // BMSDK version: 95
+
 #include "RPConfig.h"
 #include "RocketPlugin.h"
 
@@ -19,6 +20,7 @@
 #include "GameModes/BoostShare.h"
 #include "GameModes/SacredGround.h"
 #include "GameModes/SmallCars.h"
+#include "GameModes/GhostCars.h"
 
 BAKKESMOD_PLUGIN(RocketPlugin, "Rocket Plugin", PLUGIN_VERSION, PLUGINTYPE_ALL)
 
@@ -130,7 +132,7 @@ void PrintJoinOptions(std::string error = "")
 /// <summary>Prints how to use the available mutators for the `rp` command.</summary>
 /// <param name="mutators">List of available mutators</param>
 /// <param name="error">Error to prepend</param>
-void PrintAvailableMutators(const std::vector<RocketPlugin::GameSetting>& mutators, std::string error = "")
+void PrintAvailableMutators(const std::vector<std::reference_wrapper<RocketPlugin::GameSetting>>& mutators, std::string error = "")
 {
     error += "usage: rp mutator [mutator] [value]\n"
         "mutators:\n";
@@ -146,17 +148,17 @@ void PrintAvailableMutators(const std::vector<RocketPlugin::GameSetting>& mutato
 /// <param name="mutators">List of mutators</param>
 /// <param name="mutatorNameToFind">Mutator to find the index of</param>
 /// <returns>The index of a given string the mutators list or -1 or it was not found</returns>
-int FindSanitizedIndexInMutators(const std::vector<RocketPlugin::GameSetting>& mutators, std::string mutatorNameToFind)
+int FindSanitizedIndexInMutators(const std::vector<std::reference_wrapper<RocketPlugin::GameSetting>>& mutators, std::string mutatorNameToFind)
 {
     for (size_t i = 0; i < mutators.size(); i++) {
-        std::string internalMutatorName = mutators[i].InternalCategoryName;
-        internalMutatorName.erase(std::remove_if(internalMutatorName.begin(), internalMutatorName.end(),
-                                                 [](const char c) {
-                                                     return !std::isalnum(c);
-                                                 }), internalMutatorName.end());
-        mutatorNameToFind.erase(std::remove_if(mutatorNameToFind.begin(), mutatorNameToFind.end(), [](const char c) {
+        std::string internalMutatorName = mutators[i].get().InternalCategoryName;
+        internalMutatorName.erase(std::ranges::remove_if(internalMutatorName,
+            [](const char c) {
+                return !std::isalnum(c);
+            }).begin(), internalMutatorName.end());
+        mutatorNameToFind.erase(std::ranges::remove_if(mutatorNameToFind, [](const char c) {
             return !std::isalnum(c);
-        }), mutatorNameToFind.end());
+        }).begin(), mutatorNameToFind.end());
 
         if (to_lower(mutatorNameToFind) == to_lower(internalMutatorName)) {
             return static_cast<int>(i);
@@ -382,7 +384,7 @@ void RocketPlugin::parseGameModeArguments(const std::vector<std::string>& argume
         return;
     }
 
-    if (isHostingLocalGame()) {
+    if (IsHostingLocalGame()) {
         setMatchSettings();
         BM_LOG("Updated game mode for next match.");
     }
@@ -417,7 +419,7 @@ void RocketPlugin::parseMapArguments(const std::vector<std::string>& arguments)
         return;
     }
 
-    if (isHostingLocalGame()) {
+    if (IsHostingLocalGame()) {
         setMatchMapName(map.stem().string());
         BM_LOG("Updated map for next match.");
     }
@@ -439,7 +441,7 @@ void RocketPlugin::parsePlayerCountArguments(const std::vector<std::string>& arg
 
     playerCount = std::max(2l, std::strtol(players.c_str(), nullptr, 10));
 
-    if (isHostingLocalGame()) {
+    if (IsHostingLocalGame()) {
         BM_WARNING_LOG("Updating player count may not update while already hosting.");
     }
 }
@@ -512,7 +514,7 @@ void RocketPlugin::parseTeamArguments(const std::vector<std::string>& arguments)
         clubMatch = std::strtoul(clubMatchStr.c_str(), nullptr, 10);
     }
 
-    if (isHostingLocalGame()) {
+    if (IsHostingLocalGame()) {
         setMatchSettings();
         BM_LOG("Updated game mode for next match.");
     }
@@ -521,35 +523,40 @@ void RocketPlugin::parseTeamArguments(const std::vector<std::string>& arguments)
 
 void RocketPlugin::parseMutatorArguments(const std::vector<std::string>& arguments)
 {
+    std::vector<std::reference_wrapper<GameSetting>> allMutators;
+    allMutators.insert(allMutators.end(), mutators.begin(), mutators.end());
+    allMutators.insert(allMutators.end(), customMutators.begin(), customMutators.end());
+
     if (arguments.size() < 3) {
-        PrintAvailableMutators(mutators);
+        PrintAvailableMutators(allMutators);
         return;
     }
 
-    const std::string& mutator = arguments[2];
-    const int i = FindSanitizedIndexInMutators(mutators, mutator);
+    const std::string& mutatorName = arguments[2];
+    const int i = FindSanitizedIndexInMutators(allMutators, mutatorName);
     if (i == -1) {
-        PrintAvailableMutators(mutators, "Invalid mutator '" + mutator + "'\n");
+        PrintAvailableMutators(allMutators, "Invalid mutator '" + mutatorName + "'\n");
         return;
     }
 
+    GameSetting& mutator = allMutators[i].get();
     if (arguments.size() < 4) {
-        PrintAvailableMutatorValues(mutators[i]);
+        PrintAvailableMutatorValues(mutator);
         return;
     }
 
     const std::string& mutatorValue = arguments[3];
-    const int j = FindSanitizedIndexInMutatorValues(mutators[i], mutatorValue);
+    const int j = FindSanitizedIndexInMutatorValues(mutator, mutatorValue);
     if (j == -1) {
-        PrintAvailableMutatorValues(mutators[i], "Invalid value '" + mutatorValue + "' for '" +
-                                    mutators[i].InternalCategoryName + "'\n");
+        PrintAvailableMutatorValues(mutator, "Invalid value '" + mutatorValue + "' for '" +
+            mutator.InternalCategoryName + "'\n");
         return;
     }
 
-    mutators[i].CurrentSelected = j;
-    BM_LOG("Changed {:s} to {:s}", quote(mutators[i].InternalCategoryName), quote(mutators[i].InternalName[j]));
+    mutator.CurrentSelected = j;
+    BM_LOG("Changed {:s} to {:s}", quote(mutator.InternalCategoryName), quote(mutator.InternalName[j]));
 
-    if (isHostingLocalGame()) {
+    if (IsHostingLocalGame()) {
         setMatchSettings();
         BM_LOG("Updated mutator for next match.");
     }
@@ -573,80 +580,6 @@ void RocketPlugin::parseRumbleArguments(const std::vector<std::string>& argument
 }
 
 
-/// <summary>Autocomplete the `rp` command.</summary>
-/// <remarks>Not available in the public BakkesMod version.</remarks>
-/// <param name="arguments">Arguments given with the `rp` command</param>
-/// <returns>List of suggestions</returns>
-std::vector<std::string> RocketPlugin::complete(const std::vector<std::string>& arguments)
-{
-    std::vector<std::string> suggestions;
-
-    if (arguments.size() == 2 && arguments[1].empty()) {
-        suggestions.emplace_back("join ;[ip](:port) (password)");
-        suggestions.emplace_back("host ;[map] (preset)");
-        suggestions.emplace_back("gamemode ;[gamemode]");
-        suggestions.emplace_back("map ;[map]");
-        suggestions.emplace_back("players ;[players]");
-        suggestions.emplace_back("mutator ;[mutator] [value]");
-        suggestions.emplace_back("rumble ;[force_multiplier] [range_multiplier] [duration_multiplier]");
-    }
-    else if (std::string("join").find(arguments[1]) == 0) {
-        if (arguments.size() == 2) {
-            suggestions.emplace_back("join ;[ip](:port) (password)");
-        }
-        else if (arguments.size() == 3) {
-            if (arguments[2].empty()) {
-                suggestions.push_back(fmt::format("join {:s}:{:d} ;(password)", *joinIP, *joinPort));
-            }
-            else {
-                suggestions.push_back(fmt::format("join {:s}:{:d} ;(password)", arguments[2], *joinPort));
-            }
-        }
-        else if (arguments.size() == 4) {
-            suggestions.push_back("join " + arguments[2] + " ;(password)");
-        }
-    }
-    else if (std::string("mutator").find(arguments[1]) == 0) {
-        if (arguments.size() == 2) {
-            suggestions.emplace_back("mutator ;[mutator] [value]");
-        }
-        if (arguments.size() == 3) {
-            for (const GameSetting& mutator : mutators) {
-                if (to_lower(mutator.InternalCategoryName).find(to_lower(arguments[2])) == 0) {
-                    suggestions.push_back("mutator " + quote(mutator.InternalCategoryName) + " ;[value]");
-                }
-            }
-        }
-        else if (arguments.size() == 4) {
-            const int i = FindSanitizedIndexInMutators(mutators, arguments[2]);
-            if (i != -1) {
-                for (const std::string& value : mutators[i].InternalName) {
-                    if (to_lower(value).find(to_lower(arguments[3])) == 0) {
-                        suggestions.push_back("mutator " + quote(arguments[2]) + " " + quote(value));
-                    }
-                }
-            }
-        }
-    }
-    else if (std::string("rumble").find(arguments[1]) == 0) {
-        if (arguments.size() == 2) {
-            suggestions.emplace_back("rumble ;[force_multiplier] [range_multiplier] [duration_multiplier]");
-        }
-        if (arguments.size() == 3) {
-            suggestions.emplace_back("rumble ;[force_multiplier] [range_multiplier] [duration_multiplier]");
-        }
-        else if (arguments.size() == 4) {
-            suggestions.push_back("rumble " + arguments[2] + " ;[range_multiplier] [duration_multiplier]");
-        }
-        else if (arguments.size() == 5) {
-            suggestions.push_back("rumble " + arguments[2] + " " + arguments[3] + " ;[duration_multiplier]");
-        }
-    }
-
-    return suggestions;
-}
-
-
 /*
  *  Host/Join Match
  */
@@ -659,7 +592,7 @@ void RocketPlugin::HostGame(std::string arena)
     if (arena.empty()) {
         if (enableWorkshopMaps || enableCustomMaps) {
             if (!std::filesystem::exists(currentMap)) {
-                BM_ERROR_LOG("no map selected.");
+                BM_ERROR_LOG("could not find {}", quote(currentMap));
                 PushError("Hosting map failed: no map selected");
                 return;
             }
@@ -764,6 +697,43 @@ void RocketPlugin::JoinGame(const char* pswd)
     }
 
     gameWrapper->ExecuteUnrealCommand(fmt::format("start {:s}:{:d}/?Lan?Password={:s}", *joinIP, *joinPort, pswd));
+
+    SetTimeout([this](GameWrapper*) {
+        if (isJoiningHost) {
+            isJoiningHost = false;
+            PushError("Could not connect to the host, please make sure that the host is reachable.");
+        }
+    }, 30);  // Should be more then the Rocket Leagues timeout.
+}
+
+
+/// <summary>Gets the current game as <see cref="ServerWrapper"/>.</summary>
+/// <param name="allowOnlineGame">Bool with if should try to get a online game</param>
+/// <returns>The current game as <see cref="ServerWrapper"/> or <c>NULL</c> is no game is found</returns>
+ServerWrapper RocketPlugin::GetGame(const bool allowOnlineGame) const
+{
+    ServerWrapper localGame = gameWrapper->GetGameEventAsServer();
+    if (!localGame.IsNull()) {
+        return localGame;
+    }
+    if (allowOnlineGame) {
+        ServerWrapper onlineGame = gameWrapper->GetOnlineGame();
+        if (!onlineGame.IsNull()) {
+            return onlineGame;
+        }
+    }
+
+    return NULL;
+}
+
+
+/// <summary>Checks if you are in a game.</summary>
+/// <param name="allowOnlineGame">Bool with if should check online games</param>
+/// <returns>Whether you are in a game</returns>
+bool RocketPlugin::IsInGame(const bool allowOnlineGame) const
+{
+    ServerWrapper game = GetGame(allowOnlineGame);
+    return !game.IsNull();
 }
 
 
@@ -816,6 +786,9 @@ void RocketPlugin::resetMutators()
     for (GameSetting& mutator : mutators) {
         mutator.CurrentSelected = 0;
     }
+    for (GameSetting& mutator : customMutators) {
+        mutator.CurrentSelected = 0;
+    }
 }
 
 
@@ -864,7 +837,7 @@ void RocketPlugin::copyMap(const std::filesystem::path& map)
 }
 
 
-/// <summary>Sets the countdown time at the start of a match.</summary>
+/// <summary>Sets the arena settings at the start of a match.</summary>
 /// <remarks>Gets called on 'TAGame.GameEvent_TA.Init'.</remarks>
 /// <param name="server">The game server that started</param>
 void RocketPlugin::onGameEventInit([[maybe_unused]] const ServerWrapper& server)
@@ -898,40 +871,6 @@ void RocketPlugin::onGameEventInit([[maybe_unused]] const ServerWrapper& server)
             broadcastJoining();
         }, 1.41f);
     }
-}
-
-
-/*
- *  Modules
- */
-
-/// <summary>Gets the current game as <see cref="ServerWrapper"/>.</summary>
-/// <param name="allowOnlineGame">Bool with if should try to get a online game</param>
-/// <returns>The current game as <see cref="ServerWrapper"/> or <c>NULL</c> is no game is found</returns>
-ServerWrapper RocketPlugin::GetGame(const bool allowOnlineGame) const
-{
-    ServerWrapper localGame = gameWrapper->GetGameEventAsServer();
-    if (!localGame.IsNull()) {
-        return localGame;
-    }
-    if (allowOnlineGame) {
-        ServerWrapper onlineGame = gameWrapper->GetOnlineGame();
-        if (!onlineGame.IsNull()) {
-            return onlineGame;
-        }
-    }
-
-    return NULL;
-}
-
-
-/// <summary>Checks if you are in a game.</summary>
-/// <param name="allowOnlineGame">Bool with if should check online games</param>
-/// <returns>Whether you are in a game</returns>
-bool RocketPlugin::IsInGame(const bool allowOnlineGame) const
-{
-    ServerWrapper game = GetGame(allowOnlineGame);
-    return !game.IsNull();
 }
 
 
@@ -1009,12 +948,12 @@ void RocketPlugin::OnLoad()
     // Load the custom mutator presets.
     presetPaths = get_files_from_dir(*presetDirPath, 2, ".cfg");
 
+    /* Init Modules */
+    RocketPluginModule::rocketPlugin = this;
+
     /* Init Networking */
     upnpClient = std::make_shared<UPnPClient>();
     p2pHost = std::make_shared<P2PHost>();
-
-    /* Init Modules */
-    RocketPluginModule::rocketPlugin = this;
 
     /* Init Game Modes */
     customGameModes.push_back(std::make_shared<Drainage>());
@@ -1027,6 +966,7 @@ void RocketPlugin::OnLoad()
     customGameModes.push_back(std::make_shared<BoostMod>());
     customGameModes.push_back(std::make_shared<BoostShare>());
     customGameModes.push_back(std::make_shared<SacredGround>());
+    customGameModes.push_back(std::make_shared<GhostCars>());
 }
 
 
@@ -1076,6 +1016,10 @@ void RocketPlugin::registerCVars()
     showMetricsWindow = std::make_shared<bool>(false);
     cvarManager->registerCvar("rp_show_metrics_window", "0", "Shows the Dear ImGui metrics window", true, false, 0,
                               false, 0, false).bindTo(showMetricsWindow);
+
+    showColorTestWindow = std::make_shared<bool>(false);
+    cvarManager->registerCvar("rp_show_color_test_window", "0", "Shows the color test window", true, false, 0,
+                              false, 0, false).bindTo(showColorTestWindow);
 #endif
 }
 
@@ -1123,6 +1067,23 @@ void RocketPlugin::registerNotifiers()
             BM_WARNING_LOG("Small Cars game mode already added");
         }
     }, "Adds beta game modes.", PERMISSION_ALL);
+
+    RegisterNotifier("rp_start_match_file_server", [this](const std::vector<std::string>& arguments) {
+        if (matchFileServer != nullptr) return;
+        std::string host = fileServerAddress;
+        if (arguments.size() > 1) {
+            host = arguments[1];
+        }
+        int port = fileServerPort;
+        if (arguments.size() > 2 && IsInt(arguments[2])) {
+            port = static_cast<int>(std::strtol(arguments[2].c_str(), nullptr, 10));
+        }
+        matchFileServer = std::make_unique<MatchFileServer>(host, port);
+    }, "Starts a local server to allow map downloading.", PERMISSION_ALL);
+
+    RegisterNotifier("rp_stop_match_file_server", [this](const std::vector<std::string>&) {
+        matchFileServer = nullptr;
+    }, "Stops the local server to allow map downloading.", PERMISSION_ALL);
 }
 
 
@@ -1134,7 +1095,7 @@ void RocketPlugin::registerHooks()
             carPhysicsMods.SetPhysics(caller);
         });
 
-    HookEventWithCaller<ServerWrapper>("Function TAGame.GameEvent_TA.Init",
+    HookEventWithCaller<ServerWrapper>("Function TAGame.GameEvent_TA.PostBeginPlay",
         [this](const ServerWrapper& caller, void*, const std::string&) {
             onGameEventInit(caller);
         });
@@ -1185,4 +1146,23 @@ void RocketPlugin::GameSetting::FixDisplayNames(const GameSetting& other)
 std::string RocketPlugin::GameSetting::GetSelected() const
 {
     return InternalName[CurrentSelected];
+}
+
+
+/// <summary>Checks whether a given mutator is enabled in the settings.</summary>
+/// <param name="internalMutatorCategoryName">Mutators category name</param>
+/// <param name="internalMutatorName">Mutator name</param>
+/// <returns>Bool with if the given mutator is enabled in the settings</returns>
+bool RocketPlugin::IsMutatorEnabled(const std::string& internalMutatorCategoryName, const std::string& internalMutatorName) const
+{
+    for (const std::vector<GameSetting>& gameSettings : { mutators, customMutators }) {
+        for (const GameSetting& mutator : gameSettings) {
+            if (mutator.InternalCategoryName != internalMutatorCategoryName) {
+                continue;
+            }
+            return mutator.GetSelected() == internalMutatorName;
+        }
+    }
+
+    return false;
 }

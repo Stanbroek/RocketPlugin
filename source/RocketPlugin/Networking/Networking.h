@@ -1,13 +1,9 @@
 #pragma once
-#define DISALLOW_COPY_AND_ASSIGN(cls) \
-    cls(const cls&) = delete; \
-    cls(cls&&) = delete; \
-    cls& operator=(const cls&) = delete; \
-    cls& operator=(cls&&) = delete
 
 
-namespace Networking
+class Networking
 {
+public:
     enum class DestAddrType
     {
         UNKNOWN_ADDR,
@@ -26,25 +22,25 @@ namespace Networking
         HOST_ONLINE,
     };
 
-    DestAddrType GetDestAddrType(const char* addr);
-    std::string GetHostStatusHint(DestAddrType addrType, HostStatus hostStatus);
+    static DestAddrType GetDestAddrType(const std::string& addr);
+    static std::string GetHostStatusHint(DestAddrType addrType, HostStatus hostStatus);
 
-    std::string IPv4ToString(const void* addr);
+    static std::string IPv4ToString(const void* addr);
 
-    bool IsValidPort(int port);
-    bool IsValidIPv4(const std::string& ipAddr);
-    bool IsPrivateIPv4(const std::string& ipAddr);
-    bool IsExternalIPv4(const std::string& ipAddr);
-    bool IsHamachiIPv4(const std::string& ipAddr);
-    bool IsValidDomainName(const std::string& addr);
+    static bool IsValidPort(int port);
+    static bool IsValidIPv4(const std::string& ipAddr);
+    static bool IsPrivateIPv4(const std::string& ipAddr);
+    static bool IsExternalIPv4(const std::string& ipAddr);
+    static bool IsHamachiIPv4(const std::string& ipAddr);
+    static bool IsValidDomainName(const std::string& addr);
 
-    std::error_code NetworkRequest(const std::string& host, unsigned short port, int protocol, const char* sendBuf,
+    static std::error_code NetworkRequest(const std::string& host, unsigned short port, int protocol, const char* sendBuf,
         size_t sendBufSize, char* recvBuf = nullptr, size_t recvBufSize = 0);
-    std::error_code GetInternalIPAddress(std::string& ipAddr);
-    std::error_code GetExternalIPAddress(const std::string& host, std::string* ipAddr, bool threaded = false);
+    static std::error_code GetInternalIPAddress(std::string& ipAddr);
+    static std::future<std::error_code> GetExternalIPAddress(const std::string& host, std::string& outIpAddr, bool threaded = false);
 
-    bool PingHost(const std::string& host, unsigned short port, HostStatus* result = nullptr, bool threaded = false);
-}
+    static std::future<bool> PingHost(const std::string& host, unsigned short port, HostStatus* result = nullptr, bool threaded = false);
+};
 
 
 // Predefine types without including them.
@@ -56,7 +52,10 @@ class UPnPClient
 public:
     UPnPClient();
     ~UPnPClient();
-    DISALLOW_COPY_AND_ASSIGN(UPnPClient);
+    UPnPClient(UPnPClient&&) = delete;
+    UPnPClient(const UPnPClient&) = delete;
+    UPnPClient& operator=(UPnPClient&&) = delete;
+    const UPnPClient& operator=(const UPnPClient&) = delete;
 
     void FindDevices(bool threaded = true);
     std::string GetDiscoveryStatus();
@@ -132,7 +131,10 @@ class P2PHost
 public:
     P2PHost();
     ~P2PHost() = default;
-    DISALLOW_COPY_AND_ASSIGN(P2PHost);
+    P2PHost(P2PHost&&) = delete;
+    P2PHost(const P2PHost&) = delete;
+    P2PHost& operator=(P2PHost&&) = delete;
+    const P2PHost& operator=(const P2PHost&) = delete;
 
     void FindNATType(unsigned short port, bool threaded = true);
     void PunchPort(const std::string& ip, unsigned short port, bool threaded = true);

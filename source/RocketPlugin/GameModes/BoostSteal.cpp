@@ -2,7 +2,7 @@
 // A boost stealing game mode for Rocket Plugin.
 //
 // Author:        Stanbroek
-// Version:       0.1.1 15/08/21
+// Version:       0.1.2 07/04/22
 // BMSDK version: 95
 
 #include "BoostSteal.h"
@@ -46,4 +46,12 @@ void BoostSteal::Activate(const bool active)
 std::string BoostSteal::GetGameModeName()
 {
     return "Boost Steal";
+}
+
+
+/// <summary>Gets the game modes description.</summary>
+/// <returns>The game modes description</returns>
+std::string BoostSteal::GetGameModeDescription()
+{
+    return "Boost Steal allows you to steal someone else their boost by blowing them up.";
 }

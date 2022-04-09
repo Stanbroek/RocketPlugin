@@ -1,6 +1,8 @@
 #pragma once
 #include "Version.h"
 #include "Networking/Networking.h"
+#include "Networking/RPNetCode.h"
+#include "Networking/MatchFileServer.h"
 
 #include "Modules/RocketPluginModule.h"
 #include "Modules/GameControls.h"
@@ -64,13 +66,12 @@ private:
     void parseTeamArguments(const std::vector<std::string>& arguments);
     void parseMutatorArguments(const std::vector<std::string>& arguments);
     void parseRumbleArguments(const std::vector<std::string>& arguments);
-    std::vector<std::string> complete(const std::vector<std::string>& arguments);
 
     /* Steamworks Helpers */
 public:
 private:
-    std::wstring getPlayerNickname(uint64_t uniqueId) const;
-    void getSubscribedWorkshopMapsAsync(bool getSubscribedMaps = false);
+    std::wstring getPlayerNickname(uint64_t) const;
+    void getSubscribedWorkshopMapsAsync(bool = false);
 
     struct WorkshopMap
     {
@@ -91,21 +92,23 @@ private:
 public:
     void HostGame(std::string arena = "");
     void JoinGame(const char* pswd = "");
+    bool IsHostingLocalGame() const;
+    ServerWrapper GetGame(bool allowOnlineGame = false) const;
+    bool IsInGame(bool allowOnlineGame = false) const;
 
 private:
     std::string getGameTags() const;
     void savePreset(const std::string& presetName);
     void loadPreset(const std::filesystem::path& presetPath);
     void resetMutators();
-    void setMatchSettings(const std::string& arena = "") const;
-    void setMatchMapName(const std::string& arena) const;
-    bool setSearchStatus(const std::wstring& searchStatus, bool shouldBroadcast = false) const;
+    void setMatchSettings(const std::string& = "") const;
+    void setMatchMapName(const std::string&) const;
+    bool setSearchStatus(const std::wstring&, bool = false) const;
     void broadcastJoining();
 
-    bool isHostingLocalGame() const;
     bool isCurrentMapModded() const;
-    bool isMapJoinable(const std::filesystem::path& map);
-    bool preLoadMap(const std::filesystem::path& pathName, bool overrideDupe = false, bool warnIfExists = false);
+    bool isMapJoinable(const std::filesystem::path&);
+    bool preLoadMap(const std::filesystem::path&, bool = false, bool = false);
     void copyMap(const std::filesystem::path& map = "");
     void onGameEventInit(const ServerWrapper& server);
 
@@ -113,19 +116,6 @@ private:
     std::string joiningPartyIp;
     std::string joiningPartyPswd;
     bool failedToGetMapPackageFileCache = false;
-
-    /* Modules */
-public:
-    ServerWrapper GetGame(bool allowOnlineGame = false) const;
-    bool IsInGame(bool allowOnlineGame = false) const;
-
-    GameControls gameControls;
-    LocalMatchSettings matchSettings;
-    BotSettings botSettings;
-    BallMods ballMods;
-    PlayerMods playerMods;
-    CarPhysicsMods carPhysicsMods;
-private:
 
     /* BakkesMod Plugin Overrides */
 public:
@@ -186,6 +176,7 @@ private:
 
     std::shared_ptr<bool> showDemoWindow;
     std::shared_ptr<bool> showMetricsWindow;
+    std::shared_ptr<bool> showColorTestWindow;
 
     /* General Settings */
 public:
@@ -224,6 +215,7 @@ private:
     void renderMultiplayerTabHostAdvancedSettings();
     void renderMultiplayerTabHostAdvancedSettingsUPnPSettings();
     void renderMultiplayerTabHostAdvancedSettingsP2PSettings();
+    void renderMultiplayerTabHostAdvancedSettingsMatchFileHostSettings();
 
     void loadRLConstants();
 
@@ -256,15 +248,23 @@ private:
     int joiningPartyPort = DEFAULT_PORT;
     std::shared_ptr<std::string> joinIP;
     std::shared_ptr<int> joinPort;
+    Networking::HostStatus hostStatus = Networking::HostStatus::HOST_UNKNOWN;
+    Networking::DestAddrType addressType = Networking::DestAddrType::UNKNOWN_ADDR;
     bool joinCustomMap = false;
     bool refreshJoinableMaps = true;
     // joinableMaps key.
     std::filesystem::path currentJoinMap;
+    bool isCurrentMapJoinable = true;
     // Maps path to display name.
     std::map<std::filesystem::path, std::string> joinableMaps;
     bool loadingScreenHooked = false;
     std::wstring loadingScreenMapName;
     std::wstring loadingScreenMapAuthor;
+    std::future<MatchFileServer::ServerStatus> serverStatusRequest;
+    std::future<bool> mapDownloadRequest;
+    float mapDownloadRequestProgress = 0.f;
+    std::filesystem::path mapDownloadPath;
+    std::wstring mapDownloadExtension;
 
     /* Team Settings */
 public:
@@ -287,8 +287,11 @@ private:
 
     /* Mutator Settings */
 public:
+    bool IsMutatorEnabled(const std::string& internalMutatorCategoryName, const std::string& internalMutatorName) const;
+
 private:
     std::vector<GameSetting> mutators;
+    std::vector<GameSetting> customMutators { { "Car Type", "CarType", 0, { "Default", "Psyclops" }, { "", "Car_Tritip" } } };
 
     /* Advanced Settings */
 public:
@@ -303,14 +306,25 @@ private:
 
     struct P2PIP
     {
-        char IP[64];
+        std::string IP;
         bool InvalidIP;
     };
-
     std::vector<P2PIP> connections;
+
+    std::string fileServerAddress = "0.0.0.0";
+    unsigned short fileServerPort = DEFAULT_PORT;
+    std::unique_ptr<MatchFileServer> matchFileServer;
 
     /* In Game Mods */
 public:
+    GameControls gameControls;
+    LocalMatchSettings matchSettings;
+    BotSettings botSettings;
+    BallMods ballMods;
+    PlayerMods playerMods;
+    CarPhysicsMods carPhysicsMods;
+    RPNetCode netCode;
+
 private:
     void renderInGameModsTab();
     void renderInGameModsTabGameEventMods();

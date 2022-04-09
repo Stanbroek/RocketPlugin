@@ -2,7 +2,7 @@
 // A Rocket Plugin game mode where you have to stay close to your own goal.
 //
 // Author:        Stanbroek
-// Version:       0.0.2 15/08/21
+// Version:       0.0.3 07/04/22
 // BMSDK version: 95
 
 #include "SacredGround.h"
@@ -46,6 +46,16 @@ void SacredGround::Activate(const bool active)
 std::string SacredGround::GetGameModeName()
 {
     return "Sacred Ground";
+}
+
+
+/// <summary>Gets the game modes description.</summary>
+/// <returns>The game modes description</returns>
+std::string SacredGround::GetGameModeDescription()
+{
+    return "Sacred Ground blows up the car when it touches the ground\n"
+           "on the other teams side of the field, by checking which\n"
+           "teams goal is closer to the car.";
 }
 
 

@@ -5,7 +5,7 @@
 #include <filesystem>
 
 
-static inline bool has_extension(const std::string& fileExtension, const std::vector<std::string>& extensions)
+inline bool has_extension(const std::string& fileExtension, const std::vector<std::string>& extensions)
 {
     // Filter out unwanted file extensions.
     return std::ranges::any_of(extensions, [&](const std::string& extension) {
@@ -14,7 +14,7 @@ static inline bool has_extension(const std::string& fileExtension, const std::ve
 }
 
 
-static inline std::vector<std::filesystem::path> iterate_directory(const std::filesystem::path& directory,
+inline std::vector<std::filesystem::path> iterate_directory(const std::filesystem::path& directory,
     const std::vector<std::string>& extensions, const int depth = 0, const int maxDepth = 3)
 {
     if (depth > maxDepth) {
@@ -42,7 +42,7 @@ static inline std::vector<std::filesystem::path> iterate_directory(const std::fi
 
 
 template<class... TArgs, typename = std::enable_if_t<std::conjunction_v<std::is_convertible<TArgs, std::string>...>>>
-static inline std::vector<std::filesystem::path> get_files_from_dir(const std::filesystem::path& directory, const int maxDepth, const TArgs... extension)
+std::vector<std::filesystem::path> get_files_from_dir(const std::filesystem::path& directory, const int maxDepth, const TArgs... extension)
 {
     if (!exists(directory)) {
         return std::vector<std::filesystem::path>();

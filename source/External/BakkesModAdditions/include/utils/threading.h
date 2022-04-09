@@ -4,17 +4,57 @@
 #include <future>
 #include <thread>
 #include <vector>
-#include <cassert>
+#include <cassert>  // _wassert
 #include <functional>
 
-#ifndef FMT_HEADER_ONLY
-    #define FMT_HEADER_ONLY
-#endif
-#include "fmt/format.h"
 #include "fmt/ostream.h"
+
+#include "cvarmanagerwrapperdebug.h"
 
 extern std::thread::id GameThreadId;
 extern std::thread::id RenderThreadId;
+
+
+template<class... Args>
+static inline std::jthread save_jthread(const std::string& comment, const std::function<void(const std::stop_token&)>& lambda)
+{
+    return std::jthread([=](const std::stop_token& stopToken) -> void {
+        try {
+            return lambda(stopToken);
+        }
+        catch (...) {
+            BM_CRITICAL_LOG("thread #{:s} {:s} crashed", std::this_thread::get_id(), comment);
+        }
+    });
+}
+
+
+template<class... Args>
+static inline std::jthread save_jthread(const std::string& comment, void(*func)(Args...), const Args&&... args)
+{
+    return std::jthread([=](const std::stop_token& stopToken) -> void {
+        try {
+            return func(stopToken, std::forward<Args>(args)...);
+        }
+        catch (...) {
+            BM_CRITICAL_LOG("thread #{:s} {:s} crashed", std::this_thread::get_id(), comment);
+        }
+    });
+}
+
+
+template<class Cls, class... Args>
+static inline std::jthread save_jthread(const std::string& comment, void(Cls::* func)(Args...), Cls* cls, const Args&&... args)
+{
+    return std::jthread([=](const std::stop_token& stopToken) -> void {
+        try {
+            return (cls->*func)(stopToken, std::forward<Args>(args)...);
+        }
+        catch (...) {
+            BM_CRITICAL_LOG("thread #{:s} {:s} crashed", std::this_thread::get_id(), comment);
+        }
+    });
+}
 
 
 template<class... Args>
