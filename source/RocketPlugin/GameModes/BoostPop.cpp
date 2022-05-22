@@ -17,10 +17,7 @@ void BoostPop::RenderOptions()
     ImGui::TextUnformatted("Team modifiers:");
     for (int teamIdx = 0; static_cast<size_t>(teamIdx) < boostModifierTeams.size(); teamIdx++) {
         ImGui::PushID(teamIdx);
-        if(teamIdx)
-            ImGui::Text("Orange Team", teamIdx);
-        else
-            ImGui::Text("Blue Team", teamIdx);
+        ImGui::Text(teamIdx ? "Orange Team" : "Blue Team", teamIdx);
         renderSingleOption(boostModifierTeams[teamIdx]);
         ImGui::PopID();
     }
