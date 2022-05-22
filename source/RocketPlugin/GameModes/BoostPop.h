@@ -24,8 +24,6 @@ private:
         bool Enabled = false;
         // Maximum amount of boost player can have. (Range: 0-100)
         float MaxBoost = 100.0f;
-        // Since the boost gauge is actually a percent reading this may or may not confuse ppl
-        bool BoostAsPercent = false;
         // Boost amount modifiers.
         std::size_t BoostAmountModifier = 0;
         std::vector<std::string> BoostAmountModifiers = {

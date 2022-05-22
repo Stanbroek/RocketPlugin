@@ -88,7 +88,6 @@ void BoostPop::renderSingleOption(BoostPopModifier& mod, const bool toggleable) 
         ImGui::BeginDisabled();
     }
     ImGui::Indent(10);
-    ImGui::SwitchCheckbox(" Boost gauge as percent", &mod.BoostAsPercent);   
     ImGui::TextUnformatted(" Boost modifier:");
     ImGui::SliderArray("##BoostModifierType", &mod.BoostAmountModifier, mod.BoostAmountModifiers);
     ImGui::TextUnformatted(" Boost limit:");
@@ -126,13 +125,6 @@ void BoostPop::onTick(ServerWrapper server)
 
             BoostWrapper boostComponent = car.GetBoostComponent();
             BMCHECK_LOOP(boostComponent);
-            if (boostModifier.BoostAsPercent) {
-                boostComponent.SetMaxBoostAmount(boostModifier.MaxBoost / 100.0f);
-            }
-            else {
-                //figure out how to enable boost past the 'max' value or free the full boolean
-                boostComponent.SetMaxBoostAmount(1.00f);
-            }
 
             // Boost modifier.  
             boostComponent.SetRechargeRate(0);
