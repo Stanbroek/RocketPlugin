@@ -5,7 +5,7 @@
 // Version:       0.1.5 07/04/22
 // BMSDK version: 95
 
-//extra koodos to AL12 from BoostMod since I mostly moddified of that + some bois from the flock for the idea. 
+//extra koodos to AL12 from BoostMod since I mostly moddified off that + some bois from the flock for the idea. 
 
 #include "BoostPop.h"
 
