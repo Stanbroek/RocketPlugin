@@ -16,7 +16,7 @@ public:
 
 private:
 
-    const float MAXIMUM_BOOST = 101;
+    const float MAXIMUM_BOOST = 100;
 
     struct BoostPopModifier
     {
