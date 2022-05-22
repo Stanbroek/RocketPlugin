@@ -33,7 +33,5 @@ private:
 
     void renderSingleOption(BoostPopModifier& mod, bool toggleable = true) const;
     void onTick(ServerWrapper server);
-
-    BoostPopModifier boostModifierGeneral;
     std::array<BoostPopModifier, 2> boostModifierTeams;
 };
