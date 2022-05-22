@@ -17,6 +17,7 @@
 #include "GameModes/Tag.h"
 #include "GameModes/Juggernaut.h"
 #include "GameModes/BoostMod.h"
+#include "GameModes/BoostPop.h"
 #include "GameModes/BoostShare.h"
 #include "GameModes/SacredGround.h"
 #include "GameModes/SmallCars.h"
@@ -964,6 +965,7 @@ void RocketPlugin::OnLoad()
     customGameModes.push_back(std::make_shared<Tag>());
     customGameModes.push_back(std::make_shared<Juggernaut>());
     customGameModes.push_back(std::make_shared<BoostMod>());
+    customGameModes.push_back(std::make_shared<BoostPop>());
     customGameModes.push_back(std::make_shared<BoostShare>());
     customGameModes.push_back(std::make_shared<SacredGround>());
     customGameModes.push_back(std::make_shared<GhostCars>());
